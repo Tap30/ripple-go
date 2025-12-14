@@ -6,4 +6,4 @@ legitimate reports and do our best to quickly fix the problem.
 
 ## How to let us know?
 
-- [Open up an issue](<https://github.com/Tap30/client-ts/issues/new?assignees=mimshins&labels=security&projects=&template=bug_report.md&title=fix(security):>)
+- [Open up an issue](https://github.com/Tap30/ripple-go/issues/new?assignees=amir78729&labels=security&template=bug_report.md&title=fix(security):)

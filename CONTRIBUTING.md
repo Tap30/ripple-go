@@ -1,7 +1,7 @@
-# Contributing to Ripple | TypeScript
+# Contributing to Ripple | Go
 
 If you're reading this, you're definitely awesome! <br /> The following is a set
-of guidelines for contributing to ClientSocketManager, which are hosted in the
+of guidelines for contributing to Ripple Go SDK, which are hosted in the
 [GitHub](https://github.com/Tap30/ripple-go). These are mostly guidelines, not
 rules. Use your best judgment, and feel free to propose changes to this document
 in a pull request.
@@ -80,10 +80,10 @@ one.
    git pull upstream main
    ```
 
-4. Install the dependencies with `pnpm` (`npm` and `yarn` aren't supported):
+4. Install the dependencies:
 
    ```sh
-   pnpm install
+   go mod download
    ```
 
 5. Create a new topic branch:
@@ -114,72 +114,94 @@ design principles, see the
 
 ### Running the Playground
 
-Start the development server to test the SDK in a browser environment:
+Start the playground server to test the SDK:
 
 ```sh
-pnpm dev
+cd playground
+make server
 ```
 
-This runs the playground at `http://localhost:5173` with hot module replacement.
+In another terminal, run the client:
+
+```sh
+cd playground
+make client
+```
+
+This allows you to test the SDK functionality with a local server.
 
 ### Building
 
-Build all packages:
+Build the project:
 
 ```sh
-pnpm build
+go build ./...
 ```
 
 ### Testing
 
-Run all unit tests:
+Run all tests:
 
 ```sh
-pnpm test:unit
+go test ./...
 ```
 
-Run unit tests in watch mode:
+Run tests with coverage:
 
 ```sh
-pnpm test:unit:watch
+go test -cover ./...
 ```
 
-Run tests for specific packages:
+Run tests in verbose mode:
 
 ```sh
-pnpm test:unit:workspace   # Test workspace packages only
-pnpm test:unit:internals   # Test internals only
+go test -v ./...
 ```
 
 ### Linting and Formatting
 
-Check code quality:
+Format code:
 
 ```sh
-pnpm check:lint     # Run all checks (TypeScript, ESLint, Prettier, circular dependencies)
-pnpm check:format   # Check formatting only
+gofmt -w .
 ```
 
-Auto-fix formatting:
+Run static analysis:
 
 ```sh
-pnpm format
+go vet ./...
+```
+
+If you have golangci-lint installed:
+
+```sh
+golangci-lint run
 ```
 
 ### Cleaning
 
-Clean build artifacts and caches:
+Clean build artifacts:
 
 ```sh
-pnpm clear:dist         # Remove dist folders
-pnpm clear:cache        # Remove cache files
-pnpm clear:all          # Remove everything (dist, cache, node_modules)
+go clean ./...
+```
+
+Clean module cache:
+
+```sh
+go clean -modcache
 ```
 
 ### Coding style
 
-Please follow the coding style of the project. We use `prettier` and `eslint`,
-so if possible, enable linting in your editor to get real-time feedback.
+Please follow the coding style of the project. We use `gofmt` for formatting
+and `go vet` for static analysis. Follow standard Go conventions:
+
+- Use `gofmt` to format your code
+- Follow effective Go guidelines
+- Use meaningful variable and function names
+- Add comments for exported functions and types
+- Keep functions small and focused
 
 ### Git Commit Messages
 
