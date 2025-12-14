@@ -27,12 +27,19 @@ func (e *HTTPError) Error() string {
 type ClientConfig struct {
 	APIKey        string
 	Endpoint      string
+	APIKeyHeader  *string
 	FlushInterval time.Duration
 	MaxBatchSize  int
 	MaxRetries    int
+	Adapters      struct {
+		HTTPAdapter    HTTPAdapter
+		StorageAdapter StorageAdapter
+	}
 }
 
 type DispatcherConfig struct {
+	APIKey        string
+	APIKeyHeader  string
 	Endpoint      string
 	FlushInterval time.Duration
 	MaxBatchSize  int

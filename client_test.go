@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+func stringPtr(s string) *string {
+	return &s
+}
+
 func TestClient_SetGetContext(t *testing.T) {
 	client := NewClient(ClientConfig{
 		APIKey:   "test-key",
@@ -62,7 +66,7 @@ func TestClient_TrackWithMetadata(t *testing.T) {
 	}
 	defer client.Dispose()
 
-	metadata := &EventMetadata{SchemaVersion: "1.0.0"}
+	metadata := &EventMetadata{SchemaVersion: stringPtr("1.0.0")}
 	client.Track("user_signup", map[string]interface{}{"email": "test@example.com"}, metadata)
 
 	time.Sleep(100 * time.Millisecond)

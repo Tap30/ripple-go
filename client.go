@@ -27,12 +27,25 @@ func NewClient(config ClientConfig) *Client {
 		config.MaxRetries = 3
 	}
 
-	return &Client{
-		config:         config,
-		context:        make(map[string]interface{}),
-		httpAdapter:    adapters.NewNetHTTPAdapter(),
-		storageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+	client := &Client{
+		config:  config,
+		context: make(map[string]interface{}),
 	}
+
+	// Use provided adapters or defaults
+	if config.Adapters.HTTPAdapter != nil {
+		client.httpAdapter = config.Adapters.HTTPAdapter
+	} else {
+		client.httpAdapter = adapters.NewNetHTTPAdapter()
+	}
+
+	if config.Adapters.StorageAdapter != nil {
+		client.storageAdapter = config.Adapters.StorageAdapter
+	} else {
+		client.storageAdapter = adapters.NewFileStorageAdapter("ripple_events.json")
+	}
+
+	return client
 }
 
 // SetHTTPAdapter sets a custom HTTP adapter.
@@ -48,11 +61,18 @@ func (c *Client) SetStorageAdapter(adapter StorageAdapter) {
 }
 
 func (c *Client) Init() error {
+	apiKeyHeader := "X-API-Key"
+	if c.config.APIKeyHeader != nil {
+		apiKeyHeader = *c.config.APIKeyHeader
+	}
+
 	headers := map[string]string{
-		"Authorization": "Bearer " + c.config.APIKey,
+		apiKeyHeader: c.config.APIKey,
 	}
 
 	dispatcherConfig := DispatcherConfig{
+		APIKey:        c.config.APIKey,
+		APIKeyHeader:  apiKeyHeader,
 		Endpoint:      c.config.Endpoint,
 		FlushInterval: c.config.FlushInterval,
 		MaxBatchSize:  c.config.MaxBatchSize,
@@ -81,12 +101,13 @@ func (c *Client) GetContext() map[string]interface{} {
 
 func (c *Client) Track(name string, payload map[string]interface{}, metadata *EventMetadata) {
 	event := Event{
-		Name:     name,
-		Payload:  payload,
-		IssuedAt: time.Now().UnixMilli(),
-		Context:  c.GetContext(),
-		Metadata: metadata,
-		Platform: &Platform{Type: "server"},
+		Name:      name,
+		Payload:   payload,
+		Metadata:  metadata,
+		IssuedAt:  time.Now().UnixMilli(),
+		Context:   c.GetContext(),
+		SessionID: nil, // Server platform doesn't use session ID
+		Platform:  &Platform{Type: "server"},
 	}
 	c.dispatcher.Enqueue(event)
 }

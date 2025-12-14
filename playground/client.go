@@ -10,6 +10,10 @@ import (
 	ripple "github.com/Tap30/ripple-go"
 )
 
+func stringPtr(s string) *string {
+	return &s
+}
+
 var client *ripple.Client
 var scanner *bufio.Scanner
 var contextCounter int
@@ -116,7 +120,7 @@ func trackEvent() {
 		},
 	}
 
-	metadata := &ripple.EventMetadata{SchemaVersion: "1.0.0"}
+	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("1.0.0")}
 
 	client.Track(name, payload, metadata)
 	fmt.Printf("✅ Event '%s' tracked with sample payload\n\n", name)
@@ -138,7 +142,7 @@ func trackEventWithError() {
 		},
 	}
 
-	metadata := &ripple.EventMetadata{SchemaVersion: "1.0.0"}
+	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("1.0.0")}
 
 	client.Track(name, payload, metadata)
 	fmt.Printf("✅ Error event '%s' tracked - will trigger retry logic\n\n", name)
