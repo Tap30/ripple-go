@@ -224,10 +224,10 @@ See [playground/README.md](./playground/README.md) for more details.
 ## Contributing
 
 Check the  
-[contributing guide](https://github.com/Tap30/ripple-ts/blob/main/CONTRIBUTING.md)  
+[contributing guide](https://github.com/Tap30/ripple-go/blob/main/CONTRIBUTING.md)  
 for information on development workflow, proposing improvements, and running tests.
 
 ## License
 
 Distributed under the  
-[MIT license](https://github.com/Tap30/ripple-ts/blob/main/packages/browser/LICENSE).
+[MIT license](https://github.com/Tap30/ripple-go/blob/main/packages/browser/LICENSE).
