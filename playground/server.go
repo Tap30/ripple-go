@@ -56,6 +56,19 @@ func main() {
 		prettyJSON, _ := json.MarshalIndent(payload, "", "  ")
 		log.Printf("📊 Received events:\n%s", string(prettyJSON))
 
+		// Check for error trigger in any event payload
+		for _, event := range payload.Events {
+			if eventPayload, ok := event["payload"].(map[string]interface{}); ok {
+				if trigger, exists := eventPayload["trigger_error"]; exists && trigger == true {
+					log.Printf("🔄 Client should retry this request (error triggered)")
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(map[string]string{"error": "Simulated server error"})
+					return
+				}
+			}
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{

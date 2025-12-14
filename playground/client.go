@@ -47,8 +47,10 @@ func main() {
 		case "3":
 			trackEvent()
 		case "4":
-			flush()
+			trackEventWithError()
 		case "5":
+			flush()
+		case "6":
 			fmt.Println("👋 Goodbye!")
 			// Persist events to storage without flushing to server
 			client.DisposeWithoutFlush()
@@ -64,8 +66,9 @@ func showMenu() {
 	fmt.Println("1. Set Context")
 	fmt.Println("2. View Context")
 	fmt.Println("3. Track Event")
-	fmt.Println("4. Flush Events")
-	fmt.Println("5. Exit")
+	fmt.Println("4. Track Event with Error (Test Retry)")
+	fmt.Println("5. Flush Events")
+	fmt.Println("6. Exit")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }
 
@@ -117,6 +120,28 @@ func trackEvent() {
 
 	client.Track(name, payload, metadata)
 	fmt.Printf("✅ Event '%s' tracked with sample payload\n\n", name)
+}
+
+func trackEventWithError() {
+	fmt.Println("\n⚠️  Track Event with Error (Test Retry)")
+	eventCounter++
+	name := fmt.Sprintf("error_event_%d", eventCounter)
+
+	// Payload with error trigger
+	payload := map[string]interface{}{
+		"action":        fmt.Sprintf("error_action_%d", eventCounter),
+		"timestamp":     time.Now().Unix(),
+		"trigger_error": true, // This will cause server to return 500
+		"data": map[string]interface{}{
+			"count": eventCounter,
+			"type":  "error_test",
+		},
+	}
+
+	metadata := &ripple.EventMetadata{SchemaVersion: "1.0.0"}
+
+	client.Track(name, payload, metadata)
+	fmt.Printf("✅ Error event '%s' tracked - will trigger retry logic\n\n", name)
 }
 
 func flush() {

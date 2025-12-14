@@ -15,6 +15,7 @@ type HTTPAdapter interface {
 ```
 
 **Default Implementation:** `NetHTTPAdapter`
+
 - Uses Go's standard `net/http` package
 - Sends events as JSON POST requests
 - Supports custom headers
@@ -32,6 +33,7 @@ type StorageAdapter interface {
 ```
 
 **Default Implementation:** `DefaultStorageAdapter`
+
 - Stores events as JSON in a file
 - Default file: `ripple_events.json`
 - Suitable for server environments

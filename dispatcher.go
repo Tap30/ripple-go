@@ -45,10 +45,10 @@ func (d *Dispatcher) Start() error {
 
 func (d *Dispatcher) Enqueue(event Event) {
 	d.queue.Enqueue(event)
-	
+
 	// Start timer on first new event
 	d.startTimerIfNeeded()
-	
+
 	if d.queue.Len() >= d.config.MaxBatchSize {
 		go d.Flush()
 	}
@@ -57,7 +57,7 @@ func (d *Dispatcher) Enqueue(event Event) {
 func (d *Dispatcher) startTimerIfNeeded() {
 	d.timerMu.Lock()
 	defer d.timerMu.Unlock()
-	
+
 	if !d.timerStarted {
 		d.ticker = time.NewTicker(d.config.FlushInterval)
 		d.timerStarted = true

@@ -181,7 +181,7 @@ See [ONBOARDING.md](./ONBOARDING.md) for detailed architecture documentation.
 ## API Contract
 
 See the  
-[API Contract Documentation](https://github.com/Tap30/ripple/blob/main/API_CONTRACT.md)  
+[API Contract Documentation](https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md)  
 for details on the shared, framework-independent interface all Ripple SDKs follow.
 
 ## Development

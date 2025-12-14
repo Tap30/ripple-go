@@ -8,11 +8,11 @@ import (
 
 // Re-export adapter types for convenience
 type (
-	Event         = adapters.Event
-	EventMetadata = adapters.EventMetadata
-	Platform      = adapters.Platform
-	HTTPAdapter   = adapters.HTTPAdapter
-	HTTPResponse  = adapters.HTTPResponse
+	Event          = adapters.Event
+	EventMetadata  = adapters.EventMetadata
+	Platform       = adapters.Platform
+	HTTPAdapter    = adapters.HTTPAdapter
+	HTTPResponse   = adapters.HTTPResponse
 	StorageAdapter = adapters.StorageAdapter
 )
 
