@@ -14,6 +14,8 @@ type (
 	HTTPAdapter    = adapters.HTTPAdapter
 	HTTPResponse   = adapters.HTTPResponse
 	StorageAdapter = adapters.StorageAdapter
+	LoggerAdapter  = adapters.LoggerAdapter
+	LogLevel       = adapters.LogLevel
 )
 
 type HTTPError struct {
@@ -34,6 +36,7 @@ type ClientConfig struct {
 	Adapters      struct {
 		HTTPAdapter    HTTPAdapter
 		StorageAdapter StorageAdapter
+		LoggerAdapter  LoggerAdapter
 	}
 }
 

@@ -17,23 +17,28 @@
 
 ## Project Overview
 
-Ripple Go is a high-performance, fault-tolerant event tracking SDK implemented as a single Go package. It provides reliable event delivery, batching, retries, persistence, and graceful shutdown for server-side applications.
+Ripple Go is a high-performance, scalable, and fault-tolerant event tracking SDK implemented as a single Go package. It provides reliable event delivery, batching, retries, persistence, and graceful shutdown for server-side applications.
 
-This version is not a monorepo. It has no browser package, no Node.js package, and no internal modules exposed. All functionality exists within one cohesive Go module.
+This version is not a monorepo. It has no browser package, no Node.js package, and no internal modules exposed. All functionality exists within one cohesive Go module that follows the unified API contract defined in the main Ripple repository.
 
 ## SDK Features
 
 ### Core Features
 
+* **Unified Metadata System** – Single metadata field that merges shared metadata (client-level) with event-specific metadata
+* **Type-Safe Metadata Management** – MetadataManager for handling shared metadata with thread-safe operations
+* **Initialization Validation** – Track() throws error if called before Init() to prevent data loss
+* **Logger Interface** – Pluggable logging with PrintLoggerAdapter and NoOpLoggerAdapter implementations
 * **Context Management** – shared context automatically attached to all events
-* **Event Metadata** – optional schema versioning
+* **Event Metadata** – optional schema versioning and event-specific metadata
 * **Automatic Batching** – dispatch based on batch size
 * **Scheduled Flushing** – time-based flush via goroutines
-* **Retry Logic** – exponential backoff with jitter
+* **Retry Logic** – exponential backoff with jitter (1000ms × 2^attempt + random jitter)
 * **Event Persistence** – disk-backed storage for unsent events
 * **Queue Management** – FIFO queue using `container/list`
+* **Race Condition Prevention** – Mutex-based atomic operations for concurrent safety
 * **Graceful Shutdown** – flushes and persists all events on dispose
-* **Adapters** – pluggable HTTP and storage implementations
+* **Adapters** – pluggable HTTP, storage, and logger implementations
 
 ### Go-Specific Features
 
@@ -49,9 +54,15 @@ This version is not a monorepo. It has no browser package, no Node.js package, a
 type ClientConfig struct {
     APIKey        string
     Endpoint      string
+    APIKeyHeader  *string       // Optional: Header name for API key (default: "X-API-Key")
     FlushInterval time.Duration // Default: 5s
     MaxBatchSize  int           // Default: 10
     MaxRetries    int           // Default: 3
+    Adapters      struct {
+        HTTPAdapter    HTTPAdapter    // Optional: Custom HTTP adapter
+        StorageAdapter StorageAdapter // Optional: Custom storage adapter
+        LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter (default: PrintLoggerAdapter with WARN level)
+    }
 }
 ```
 
@@ -71,85 +82,129 @@ type ClientConfig struct {
 
 ```sh
 ripple-go/
-├── client.go
-├── client_test.go
-├── dispatcher.go
-├── dispatcher_test.go
-├── queue.go
-├── queue_test.go
-├── types.go
-├── types_test.go
-├── go.mod
-├── README.md
-├── ONBOARDING.md
+├── client.go                    # Main client implementation with metadata management
+├── client_test.go              # Client tests
+├── dispatcher.go               # Event batching, retry logic, and HTTP dispatch
+├── dispatcher_test.go          # Dispatcher tests
+├── queue.go                    # FIFO queue implementation
+├── queue_test.go               # Queue tests
+├── metadata_manager.go         # Shared metadata management
+├── mutex.go                    # Race condition prevention
+├── types.go                    # Type definitions and re-exports
+├── types_test.go               # Type tests
+├── go.mod                      # Go module definition
+├── README.md                   # Project documentation
+├── ONBOARDING.md              # This file - complete implementation guide
 ├── adapters/
-│   ├── http_adapter.go
-│   ├── http_adapter_test.go
-│   ├── storage_adapter.go
-│   ├── file_storage_adapter.go
-│   ├── file_storage_adapter_test.go
-│   ├── types.go
-│   └── README.md
+│   ├── http_adapter.go         # HTTP adapter interface
+│   ├── net_http_adapter.go     # Default HTTP implementation
+│   ├── net_http_adapter_test.go # HTTP adapter tests
+│   ├── storage_adapter.go      # Storage adapter interface
+│   ├── file_storage_adapter.go # Default file storage implementation
+│   ├── file_storage_adapter_test.go # Storage adapter tests
+│   ├── logger_adapter.go       # Logger adapter interface
+│   ├── print_logger_adapter.go  # Print logger implementation
+│   ├── noop_logger_adapter.go  # No-op logger implementation
+│   ├── types.go               # Adapter type definitions
+│   └── README.md              # Adapter documentation
 ├── examples/
 │   └── basic/
 │       ├── go.mod
 │       └── main.go
 └── playground/
-    ├── server.go
-    ├── client.go
+    ├── server.go              # Test server with error simulation
+    ├── client.go              # Interactive test client
     ├── go.mod
+    └── Makefile              # Build commands
+```
     ├── Makefile
     └── README.md
 ```
 
-### Components
+### Core Components
 
 #### Client
 
-Entry point for the SDK.
+Entry point for the SDK with enhanced initialization validation and metadata management.
 Responsibilities:
 
-* Initialization
-* Managing global context
-* Accepting new events
+* Configuration validation (required APIKey and Endpoint)
+* Initialization state management
+* Managing shared metadata through MetadataManager
+* Accepting new events (with initialization check)
 * Passing events to the dispatcher
 * Exposing flushing and shutdown
+* Logger integration
 
-Thread safety is enforced through internal locking.
+Thread safety is enforced through internal locking and MetadataManager.
 
 Key methods:
 
-* `Init()`
-* `Track(name, payload, metadata)`
-* `SetContext(key, value)`
-* `GetContext()`
-* `SetHTTPAdapter(adapter)` - Set custom HTTP adapter (before Init)
-* `SetStorageAdapter(adapter)` - Set custom storage adapter (before Init)
-* `Flush()`
-* `Dispose()`
+* `Init()` - Initialize client and restore persisted events (must be called first)
+* `Track(name, payload, metadata)` - Track event (throws error if not initialized)
+* `SetContext(key, value)` - Set shared context (legacy method)
+* `GetContext()` - Get shared context (legacy method)
+* `SetMetadata(key, value)` - Set shared metadata attached to all events
+* `GetMetadata(key)` - Get shared metadata value
+* `GetAllMetadata()` - Get all shared metadata
+* `Flush()` - Force flush queued events
+* `Dispose()` - Clean up resources and flush events
+* `DisposeWithoutFlush()` - Clean up without flushing (persist to storage only)
 
-#### Context Manager
+#### MetadataManager
 
-Provides thread-safe access to global context:
+Manages global metadata attached to all events with thread-safe operations.
+Responsibilities:
 
-* Stored as `map[string]interface{}`
-* Protected with `sync.RWMutex`
-* Merged into every event at dispatch time
+* Thread-safe metadata storage using `sync.RWMutex`
+* Metadata merging (shared + event-specific)
+* Null handling (returns `nil` when no metadata is set)
+
+Key methods:
+
+* `Set(key, value)` - Set metadata value
+* `Get(key)` - Get metadata value
+* `GetAll()` - Get all metadata (returns `nil` if empty)
+* `IsEmpty()` - Check if metadata is empty
+* `Clear()` - Remove all metadata
+
+#### Mutex
+
+Provides mutual exclusion lock for preventing race conditions in concurrent operations.
+Responsibilities:
+
+* Atomic task execution
+* Race condition prevention in Dispatcher flush operations
+* Queue-based task scheduling with automatic lock release
+
+Key method:
+
+* `RunAtomic(task func() error)` - Execute task with exclusive lock
 
 #### Dispatcher
 
-Handles all operational concerns:
+Handles all operational concerns with enhanced logging and race condition prevention:
 
-* Queueing
-* Persistence
-* Automatic and manual flushing
-* Batch formation
-* Retry with exponential backoff and jitter
-* De-queuing and re-queuing failed events
+* Event queueing with atomic operations
+* Persistence with error handling
+* Automatic and manual flushing using Mutex
+* Batch formation with configurable size
+* Retry with exponential backoff and jitter (1000ms × 2^attempt + random jitter)
+* De-queuing and re-queuing failed events with proper ordering
 * Loading persisted events on startup
-* Graceful shutdown
+* Graceful shutdown with optional flush
+* Comprehensive logging for debugging and monitoring
 
-A single mutex prevents concurrent flushes.
+The Mutex prevents concurrent flush operations and ensures thread safety.
+
+Key methods:
+
+* `Enqueue(event)` - Add event to queue
+* `Flush()` - Send queued events (atomic operation)
+* `Start()` - Initialize and start background processing
+* `Stop()` - Graceful shutdown with flush
+* `StopWithoutFlush()` - Graceful shutdown without flush
+* `SetLoggerAdapter(logger)` - Set custom logger
 
 #### Queue
 
@@ -170,6 +225,35 @@ Wrapper methods include:
 * `ToSlice()`
 * `LoadFromSlice(events)`
 
+### Adapter Interfaces
+
+#### Logger Adapter
+
+Interface defined in `adapters/logger_adapter.go`:
+
+```go
+type LoggerAdapter interface {
+    Debug(message string, args ...interface{})
+    Info(message string, args ...interface{})
+    Warn(message string, args ...interface{})
+    Error(message string, args ...interface{})
+}
+```
+
+**Log Levels**: `DEBUG`, `INFO`, `WARN`, `ERROR`, `NONE` (string-based)
+
+**Built-in Implementations**:
+
+* `PrintLoggerAdapter` - Standard log output with configurable log level (default: WARN)
+* `NoOpLoggerAdapter` - Silent logger that discards all messages
+
+**Usage in SDK**:
+* Client initialization and disposal
+* Event tracking operations
+* HTTP request attempts and failures
+* Retry logic with backoff timing
+* Storage operations
+
 #### HTTP Adapter
 
 Interface defined in `adapters/http_adapter.go`:
@@ -185,6 +269,7 @@ Default implementation (`NetHTTPAdapter`):
 * Uses `net/http`
 * JSON payloads
 * Combined headers (default + user headers)
+* Configurable API key header name
 
 #### Storage Adapter
 
@@ -267,39 +352,91 @@ type HTTPResponse struct {
 ### Basic Usage
 
 ```go
+import (
+    ripple "github.com/Tap30/ripple-go"
+    "github.com/Tap30/ripple-go/adapters"
+)
+
 client := ripple.NewClient(ripple.ClientConfig{
     APIKey:   "your-api-key",
     Endpoint: "https://api.example.com/events",
 })
 
+// Initialize client (required before tracking)
 if err := client.Init(); err != nil {
     panic(err)
 }
 defer client.Dispose()
 
-client.SetContext("userId", "123")
-client.SetContext("appVersion", "1.0.0")
+// Set shared metadata (attached to all events)
+client.SetMetadata("userId", "123")
+client.SetMetadata("appVersion", "1.0.0")
 
+// Track events
 client.Track("page_view", map[string]interface{}{
     "page": "/home",
 }, nil)
 
+// Track with event-specific metadata
 client.Track("user_action", map[string]interface{}{
     "button": "submit",
-}, &ripple.EventMetadata{SchemaVersion: "1.0.0"})
+}, &ripple.EventMetadata{SchemaVersion: stringPtr("2.0.0")})
 
+// Manual flush
 client.Flush()
+
+// Helper function for string pointers
+func stringPtr(s string) *string {
+    return &s
+}
 ```
 
-### Using Metadata
+**Important**: `Init()` must be called before `Track()`. Calling `Track()` before initialization will return an error to prevent data loss.
+
+### Unified Metadata System
 
 ```go
-client.Track("user_signup", map[string]interface{}{
+// Set shared metadata (attached to all events)
+client.SetMetadata("userId", "user-123")
+client.SetMetadata("sessionId", "session-abc")
+
+// Track event with additional metadata
+err := client.Track("user_signup", map[string]interface{}{
     "email": "user@example.com",
-}, &ripple.EventMetadata{SchemaVersion: "1.0.0"})
+    "plan":  "premium",
+}, &ripple.EventMetadata{
+    SchemaVersion: stringPtr("2.0.0"),
+})
+
+// Final event will have merged metadata:
+// - userId: "user-123" (from shared)
+// - sessionId: "session-abc" (from shared)  
+// - schemaVersion: "2.0.0" (from event-specific)
 ```
 
-### Custom HTTP Adapter
+### Custom Configuration
+
+```go
+client := ripple.NewClient(ripple.ClientConfig{
+    APIKey:        "your-api-key",
+    Endpoint:      "https://api.example.com/events",
+    APIKeyHeader:  stringPtr("Authorization"), // Custom header name
+    FlushInterval: 10 * time.Second,           // Custom flush interval
+    MaxBatchSize:  20,                         // Custom batch size
+    MaxRetries:    5,                          // Custom retry count
+    Adapters: struct {
+        HTTPAdapter    ripple.HTTPAdapter
+        StorageAdapter ripple.StorageAdapter
+        LoggerAdapter  ripple.LoggerAdapter
+    }{
+        LoggerAdapter: adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
+    },
+})
+```
+
+### Custom Adapters
+
+#### Custom HTTP Adapter
 
 ```go
 import "github.com/Tap30/ripple-go/adapters"
@@ -307,9 +444,61 @@ import "github.com/Tap30/ripple-go/adapters"
 type MyHTTPAdapter struct {}
 
 func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
-    // custom logic
+    // custom HTTP logic (e.g., using different HTTP client)
     return &adapters.HTTPResponse{OK: true, Status: 200}, nil
 }
+
+// Usage
+client := ripple.NewClient(ripple.ClientConfig{
+    APIKey:   "your-api-key",
+    Endpoint: "https://api.example.com/events",
+    Adapters: struct {
+        HTTPAdapter    ripple.HTTPAdapter
+        StorageAdapter ripple.StorageAdapter
+        LoggerAdapter  ripple.LoggerAdapter
+    }{
+        HTTPAdapter: &MyHTTPAdapter{},
+    },
+})
+```
+
+#### Custom Logger Adapter
+
+```go
+import "github.com/Tap30/ripple-go/adapters"
+
+type MyLoggerAdapter struct {
+    logger *log.Logger
+}
+
+func (l *MyLoggerAdapter) Debug(message string, args ...interface{}) {
+    l.logger.Printf("[DEBUG] "+message, args...)
+}
+
+func (l *MyLoggerAdapter) Info(message string, args ...interface{}) {
+    l.logger.Printf("[INFO] "+message, args...)
+}
+
+func (l *MyLoggerAdapter) Warn(message string, args ...interface{}) {
+    l.logger.Printf("[WARN] "+message, args...)
+}
+
+func (l *MyLoggerAdapter) Error(message string, args ...interface{}) {
+    l.logger.Printf("[ERROR] "+message, args...)
+}
+
+// Usage
+client := ripple.NewClient(ripple.ClientConfig{
+    APIKey:   "your-api-key",
+    Endpoint: "https://api.example.com/events",
+    Adapters: struct {
+        HTTPAdapter    ripple.HTTPAdapter
+        StorageAdapter ripple.StorageAdapter
+        LoggerAdapter  ripple.LoggerAdapter
+    }{
+        LoggerAdapter: &MyLoggerAdapter{logger: log.New(os.Stdout, "", log.LstdFlags)},
+    },
+})
 ```
 
 ### Custom Storage Adapter
@@ -434,3 +623,62 @@ Following Go best practices:
 * Batching prevents unbounded memory growth
 * Persistence ensures events survive process restarts
 * No memory leaks from goroutines (proper cleanup on Dispose)
+
+---
+
+## API Contract
+
+The SDK follows a framework-agnostic design and API contract defined in the main Ripple repository. See: https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md
+
+### Key Contract Points
+
+* **Initialization Required**: `Init()` must be called before `Track()`
+* **Error Handling**: `Track()` returns error if not initialized
+* **Metadata Merging**: Shared metadata + event-specific metadata
+* **Platform Detection**: Automatic "server" platform for Go SDK
+* **Retry Logic**: Exponential backoff with jitter (1000ms × 2^attempt + random jitter)
+* **Graceful Shutdown**: Events are flushed and persisted on dispose
+
+---
+
+## Recent Changes
+
+### Logger Interface Addition
+- Added `LoggerAdapter` interface with Debug/Info/Warn/Error methods
+- Implemented `PrintLoggerAdapter` with configurable log levels
+- Implemented `NoOpLoggerAdapter` for silent operation
+- Integrated logging throughout Client and Dispatcher operations
+
+### Unified Metadata System
+- Added `MetadataManager` for thread-safe shared metadata management
+- Implemented metadata merging (shared + event-specific)
+- Added `SetMetadata()`, `GetMetadata()`, `GetAllMetadata()` methods
+- Maintains backward compatibility with `SetContext()` and `GetContext()`
+
+### Initialization Validation
+- `Track()` now returns error if called before `Init()`
+- Added initialization state tracking in Client
+- Prevents data loss from uninitialized client usage
+
+### Race Condition Prevention
+- Added `Mutex` component for atomic operations
+- Updated Dispatcher to use `RunAtomic()` for flush operations
+- Enhanced thread safety for concurrent operations
+
+### Enhanced Configuration
+- Added `APIKeyHeader` support for custom header names
+- Added `Adapters` struct in `ClientConfig` for all adapter types
+- Improved configuration validation with required field checks
+
+### Adapter Naming Refactor
+- Renamed `DefaultHTTPAdapter` to `NetHTTPAdapter` for better Go conventions
+- Updated constructor: `NewDefaultHTTPAdapter()` → `NewNetHTTPAdapter()`
+
+### Timer Behavior Enhancement
+- Timer now only starts when first new event is tracked, not during SDK initialization
+- If persisted events exist, they remain in queue until a new event triggers the timer
+- Maintains same API while improving efficiency for apps with persisted events
+
+### Graceful Shutdown Enhancement
+- Added `StopWithoutFlush()` and `DisposeWithoutFlush()` methods for graceful shutdown without flushing events
+- Fixed playground client exit behavior to persist events without sending to server
