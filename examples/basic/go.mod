@@ -1,7 +1,0 @@
-module example
-
-go 1.23
-
-require github.com/Tap30/ripple-go v0.0.0
-
-replace github.com/Tap30/ripple-go => ../..

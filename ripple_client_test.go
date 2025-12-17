@@ -9,6 +9,21 @@ func stringPtr(s string) *string {
 	return &s
 }
 
+func createTestConfig() ClientConfig {
+	return ClientConfig{
+		APIKey:   "test-key",
+		Endpoint: "http://test.com",
+		Adapters: struct {
+			HTTPAdapter    HTTPAdapter
+			StorageAdapter StorageAdapter
+			LoggerAdapter  LoggerAdapter
+		}{
+			HTTPAdapter:    &mockHTTPAdapter{},
+			StorageAdapter: &mockStorageAdapter{},
+		},
+	}
+}
+
 func TestClient_ConfigValidation(t *testing.T) {
 	t.Run("should panic if APIKey is missing", func(t *testing.T) {
 		defer func() {
@@ -18,6 +33,14 @@ func TestClient_ConfigValidation(t *testing.T) {
 		}()
 		NewClient(ClientConfig{
 			Endpoint: "http://test.com",
+			Adapters: struct {
+				HTTPAdapter    HTTPAdapter
+				StorageAdapter StorageAdapter
+				LoggerAdapter  LoggerAdapter
+			}{
+				HTTPAdapter:    &mockHTTPAdapter{},
+				StorageAdapter: &mockStorageAdapter{},
+			},
 		})
 	})
 
@@ -29,15 +52,58 @@ func TestClient_ConfigValidation(t *testing.T) {
 		}()
 		NewClient(ClientConfig{
 			APIKey: "test-key",
+			Adapters: struct {
+				HTTPAdapter    HTTPAdapter
+				StorageAdapter StorageAdapter
+				LoggerAdapter  LoggerAdapter
+			}{
+				HTTPAdapter:    &mockHTTPAdapter{},
+				StorageAdapter: &mockStorageAdapter{},
+			},
+		})
+	})
+
+	t.Run("should panic if HTTPAdapter is missing", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatal("expected panic for missing HTTPAdapter")
+			}
+		}()
+		NewClient(ClientConfig{
+			APIKey:   "test-key",
+			Endpoint: "http://test.com",
+			Adapters: struct {
+				HTTPAdapter    HTTPAdapter
+				StorageAdapter StorageAdapter
+				LoggerAdapter  LoggerAdapter
+			}{
+				StorageAdapter: &mockStorageAdapter{},
+			},
+		})
+	})
+
+	t.Run("should panic if StorageAdapter is missing", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatal("expected panic for missing StorageAdapter")
+			}
+		}()
+		NewClient(ClientConfig{
+			APIKey:   "test-key",
+			Endpoint: "http://test.com",
+			Adapters: struct {
+				HTTPAdapter    HTTPAdapter
+				StorageAdapter StorageAdapter
+				LoggerAdapter  LoggerAdapter
+			}{
+				HTTPAdapter: &mockHTTPAdapter{},
+			},
 		})
 	})
 }
 
 func TestClient_InitializationValidation(t *testing.T) {
-	client := NewClient(ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-	})
+	client := NewClient(createTestConfig())
 
 	t.Run("should return error if Track called before Init", func(t *testing.T) {
 		err := client.Track("test_event", nil, nil)
@@ -69,10 +135,7 @@ func TestClient_InitializationValidation(t *testing.T) {
 }
 
 func TestClient_MetadataManagement(t *testing.T) {
-	client := NewClient(ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-	})
+	client := NewClient(createTestConfig())
 
 	t.Run("should set and get metadata", func(t *testing.T) {
 		client.SetMetadata("userId", "123")
@@ -97,10 +160,7 @@ func TestClient_MetadataManagement(t *testing.T) {
 	})
 
 	t.Run("should return nil when no metadata is set", func(t *testing.T) {
-		newClient := NewClient(ClientConfig{
-			APIKey:   "test-key",
-			Endpoint: "http://test.com",
-		})
+		newClient := NewClient(createTestConfig())
 
 		metadata := newClient.GetAllMetadata()
 		if metadata != nil {
@@ -111,10 +171,7 @@ func TestClient_MetadataManagement(t *testing.T) {
 
 func TestClient_FlushEdgeCases(t *testing.T) {
 	t.Run("should work with empty queue", func(t *testing.T) {
-		client := NewClient(ClientConfig{
-			APIKey:   "test-key",
-			Endpoint: "http://test.com",
-		})
+		client := NewClient(createTestConfig())
 
 		mockHTTP := &mockHTTPAdapter{}
 		mockStorage := &mockStorageAdapter{}
@@ -131,10 +188,7 @@ func TestClient_FlushEdgeCases(t *testing.T) {
 	})
 
 	t.Run("should work before initialization", func(t *testing.T) {
-		client := NewClient(ClientConfig{
-			APIKey:   "test-key",
-			Endpoint: "http://test.com",
-		})
+		client := NewClient(createTestConfig())
 
 		// Should not panic when called before init
 		client.Flush()
@@ -143,10 +197,7 @@ func TestClient_FlushEdgeCases(t *testing.T) {
 
 func TestClient_DisposeEdgeCases(t *testing.T) {
 	t.Run("should work before initialization", func(t *testing.T) {
-		client := NewClient(ClientConfig{
-			APIKey:   "test-key",
-			Endpoint: "http://test.com",
-		})
+		client := NewClient(createTestConfig())
 
 		// Should not panic when called before init
 		err := client.Dispose()
@@ -156,10 +207,7 @@ func TestClient_DisposeEdgeCases(t *testing.T) {
 	})
 
 	t.Run("should work multiple times", func(t *testing.T) {
-		client := NewClient(ClientConfig{
-			APIKey:   "test-key",
-			Endpoint: "http://test.com",
-		})
+		client := NewClient(createTestConfig())
 
 		mockHTTP := &mockHTTPAdapter{}
 		mockStorage := &mockStorageAdapter{}
@@ -177,10 +225,7 @@ func TestClient_DisposeEdgeCases(t *testing.T) {
 }
 
 func TestClient_DisposeWithoutFlush(t *testing.T) {
-	client := NewClient(ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-	})
+	client := NewClient(createTestConfig())
 
 	mockHTTP := &mockHTTPAdapter{}
 	mockStorage := &mockStorageAdapter{}
@@ -206,26 +251,20 @@ func TestClient_DisposeWithoutFlush(t *testing.T) {
 	}
 }
 
-func TestClient_SetGetContext(t *testing.T) {
-	client := NewClient(ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-	})
+func TestClient_SetGetMetadata(t *testing.T) {
+	client := NewClient(createTestConfig())
 
-	client.SetContext("userId", "123")
-	client.SetContext("appVersion", "1.0.0")
+	client.SetMetadata("userId", "123")
+	client.SetMetadata("appVersion", "1.0.0")
 
-	ctx := client.GetContext()
-	if ctx["userId"] != "123" || ctx["appVersion"] != "1.0.0" {
-		t.Fatal("context values do not match")
+	metadata := client.GetAllMetadata()
+	if metadata["userId"] != "123" || metadata["appVersion"] != "1.0.0" {
+		t.Fatal("metadata values do not match")
 	}
 }
 
 func TestClient_Track(t *testing.T) {
-	client := NewClient(ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-	})
+	client := NewClient(createTestConfig())
 
 	mockHTTP := &mockHTTPAdapter{}
 	mockStorage := &mockStorageAdapter{}
@@ -237,7 +276,7 @@ func TestClient_Track(t *testing.T) {
 	}
 	defer client.Dispose()
 
-	client.SetContext("userId", "123")
+	client.SetMetadata("userId", "123")
 	client.Track("page_view", map[string]interface{}{"page": "/home"}, nil)
 
 	time.Sleep(100 * time.Millisecond)
@@ -248,10 +287,7 @@ func TestClient_Track(t *testing.T) {
 }
 
 func TestClient_TrackWithMetadata(t *testing.T) {
-	client := NewClient(ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-	})
+	client := NewClient(createTestConfig())
 
 	mockHTTP := &mockHTTPAdapter{}
 	mockStorage := &mockStorageAdapter{}
@@ -274,10 +310,7 @@ func TestClient_TrackWithMetadata(t *testing.T) {
 }
 
 func TestClient_Flush(t *testing.T) {
-	client := NewClient(ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-	})
+	client := NewClient(createTestConfig())
 
 	mockHTTP := &mockHTTPAdapter{}
 	mockStorage := &mockStorageAdapter{}
@@ -298,10 +331,7 @@ func TestClient_Flush(t *testing.T) {
 }
 
 func TestClient_DefaultConfig(t *testing.T) {
-	client := NewClient(ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-	})
+	client := NewClient(createTestConfig())
 
 	if client.config.FlushInterval != 5*time.Second {
 		t.Fatal("expected default flush interval of 5s")
@@ -315,10 +345,7 @@ func TestClient_DefaultConfig(t *testing.T) {
 }
 
 func TestClient_SetCustomAdapters(t *testing.T) {
-	client := NewClient(ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-	})
+	client := NewClient(createTestConfig())
 
 	customHTTP := &mockHTTPAdapter{}
 	customStorage := &mockStorageAdapter{}

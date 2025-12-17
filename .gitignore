@@ -32,3 +32,8 @@ Thumbs.db
 # Ripple specific
 ripple_events.json
 test_*.json
+error_events.json
+
+# Playground binaries
+playground/client
+playground/server

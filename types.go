@@ -34,9 +34,9 @@ type ClientConfig struct {
 	MaxBatchSize  int
 	MaxRetries    int
 	Adapters      struct {
-		HTTPAdapter    HTTPAdapter
-		StorageAdapter StorageAdapter
-		LoggerAdapter  LoggerAdapter
+		HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
+		StorageAdapter StorageAdapter // Required: Custom storage adapter
+		LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter (default: PrintLoggerAdapter with WARN level)
 	}
 }
 

@@ -27,6 +27,9 @@ func NewClient(config ClientConfig) *Client {
 	if config.Endpoint == "" {
 		panic("endpoint must be provided in config")
 	}
+	if config.Adapters.HTTPAdapter == nil || config.Adapters.StorageAdapter == nil {
+		panic("Both httpAdapter and storageAdapter must be provided in config.adapters")
+	}
 
 	// Set defaults
 	if config.FlushInterval == 0 {
@@ -42,21 +45,11 @@ func NewClient(config ClientConfig) *Client {
 	client := &Client{
 		config:          config,
 		metadataManager: NewMetadataManager(),
+		httpAdapter:     config.Adapters.HTTPAdapter,
+		storageAdapter:  config.Adapters.StorageAdapter,
 	}
 
-	// Use provided adapters or defaults
-	if config.Adapters.HTTPAdapter != nil {
-		client.httpAdapter = config.Adapters.HTTPAdapter
-	} else {
-		client.httpAdapter = adapters.NewNetHTTPAdapter()
-	}
-
-	if config.Adapters.StorageAdapter != nil {
-		client.storageAdapter = config.Adapters.StorageAdapter
-	} else {
-		client.storageAdapter = adapters.NewFileStorageAdapter("ripple_events.json")
-	}
-
+	// Use provided logger or default
 	if config.Adapters.LoggerAdapter != nil {
 		client.loggerAdapter = config.Adapters.LoggerAdapter
 	} else {
@@ -116,25 +109,14 @@ func (c *Client) Init() error {
 	return nil
 }
 
-func (c *Client) SetContext(key string, value interface{}) {
-	c.metadataManager.Set(key, value)
-}
-
-func (c *Client) GetContext() map[string]interface{} {
-	return c.metadataManager.GetAll()
-}
-
-// SetMetadata sets shared metadata that will be attached to all events
 func (c *Client) SetMetadata(key string, value interface{}) {
 	c.metadataManager.Set(key, value)
 }
 
-// GetMetadata gets a shared metadata value
 func (c *Client) GetMetadata(key string) interface{} {
 	return c.metadataManager.Get(key)
 }
 
-// GetAllMetadata returns all shared metadata
 func (c *Client) GetAllMetadata() map[string]interface{} {
 	return c.metadataManager.GetAll()
 }
@@ -172,8 +154,8 @@ func (c *Client) Track(name string, payload map[string]interface{}, metadata *Ev
 		Payload:   payload,
 		Metadata:  finalMetadata,
 		IssuedAt:  time.Now().UnixMilli(),
-		Context:   c.GetContext(),
-		SessionID: nil, // Server platform doesn't use session ID
+		Context:   sharedMetadata, // Use shared metadata as context
+		SessionID: nil,            // Server platform doesn't use session ID
 		Platform:  &Platform{Type: "server"},
 	}
 

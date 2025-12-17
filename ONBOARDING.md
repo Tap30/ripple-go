@@ -59,8 +59,8 @@ type ClientConfig struct {
     MaxBatchSize  int           // Default: 10
     MaxRetries    int           // Default: 3
     Adapters      struct {
-        HTTPAdapter    HTTPAdapter    // Optional: Custom HTTP adapter
-        StorageAdapter StorageAdapter // Optional: Custom storage adapter
+        HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
+        StorageAdapter StorageAdapter // Required: Custom storage adapter
         LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter (default: PrintLoggerAdapter with WARN level)
     }
 }
@@ -82,8 +82,8 @@ type ClientConfig struct {
 
 ```sh
 ripple-go/
-├── client.go                    # Main client implementation with metadata management
-├── client_test.go              # Client tests
+├── ripple_client.go            # Main client implementation with metadata management
+├── ripple_client_test.go       # Client tests
 ├── dispatcher.go               # Event batching, retry logic, and HTTP dispatch
 ├── dispatcher_test.go          # Dispatcher tests
 ├── queue.go                    # FIFO queue implementation
@@ -93,6 +93,7 @@ ripple-go/
 ├── types.go                    # Type definitions and re-exports
 ├── types_test.go               # Type tests
 ├── go.mod                      # Go module definition
+├── Makefile                    # Build commands (test, fmt, lint, clean)
 ├── README.md                   # Project documentation
 ├── ONBOARDING.md              # This file - complete implementation guide
 ├── adapters/
@@ -107,13 +108,12 @@ ripple-go/
 │   ├── noop_logger_adapter.go  # No-op logger implementation
 │   ├── types.go               # Adapter type definitions
 │   └── README.md              # Adapter documentation
-├── examples/
-│   └── basic/
-│       ├── go.mod
-│       └── main.go
 └── playground/
-    ├── server.go              # Test server with error simulation
-    ├── client.go              # Interactive test client
+    ├── cmd/
+    │   ├── client/
+    │   │   └── main.go        # Interactive test client with comprehensive options
+    │   └── server/
+    │       └── main.go        # Test server with error simulation
     ├── go.mod
     └── Makefile              # Build commands
 ```
@@ -142,8 +142,6 @@ Key methods:
 
 * `Init()` - Initialize client and restore persisted events (must be called first)
 * `Track(name, payload, metadata)` - Track event (throws error if not initialized)
-* `SetContext(key, value)` - Set shared context (legacy method)
-* `GetContext()` - Get shared context (legacy method)
 * `SetMetadata(key, value)` - Set shared metadata attached to all events
 * `GetMetadata(key)` - Get shared metadata value
 * `GetAllMetadata()` - Get all shared metadata
@@ -517,17 +515,31 @@ func (r *RedisStorage) Clear() error                       { /* ... */ return ni
 
 ## Development Workflow
 
+### Development Commands
+
+Use the root Makefile for common development tasks:
+
+```bash
+make test       # Run all tests
+make test-cover # Run tests with coverage
+make fmt        # Format all Go files
+make lint       # Run go vet linter
+make clean      # Clean build artifacts
+```
+
 ### Testing
 
 The project includes test files for every component:
 
-* `client_test.go`
+* `ripple_client_test.go`
 * `dispatcher_test.go`
 * `queue_test.go`
 * `storage_adapter_test.go`
 * `http_adapter_test.go`
 
-### Commands
+### Manual Commands
+
+If you prefer to run commands directly:
 
 * `go build ./...` - Build all packages
 * `go test ./...` - Run all tests
@@ -539,8 +551,8 @@ The project includes test files for every component:
 
 The playground provides a local testing environment:
 
-* `playground/server.go` - HTTP server that receives and logs events
-* `playground/client.go` - Example client that sends events
+* `playground/cmd/server/main.go` - HTTP server that receives and logs events
+* `playground/cmd/client/main.go` - Interactive client with comprehensive testing options
 
 **Usage:**
 ```bash
@@ -642,6 +654,38 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 ---
 
 ## Recent Changes
+
+### API Unification (Breaking Change)
+- **Removed** `SetContext()` and `GetContext()` methods to match TypeScript SDK
+- **Context is now unified with metadata** - use `SetMetadata()` instead
+- Updated API to match TypeScript version exactly:
+  - `SetMetadata(key, value)` - Set shared metadata attached to all events
+  - `GetMetadata(key)` - Get shared metadata value  
+  - `GetAllMetadata()` - Get all shared metadata
+- Updated all tests and playground to use new unified API
+
+### Adapter Requirements (Breaking Change)
+- **HTTPAdapter** and **StorageAdapter** are now **required** (matching TypeScript SDK)
+- **LoggerAdapter** remains optional with PrintLoggerAdapter as default
+- Added validation that panics if required adapters are missing
+- Removed default adapter creation - must be explicitly provided in config
+- Updated all tests and playground to provide required adapters
+- Added playground binaries to .gitignore to prevent accidental commits
+
+### File Naming Improvements
+- Renamed `client.go` to `ripple_client.go` for better clarity
+- Renamed `client_test.go` to `ripple_client_test.go` to match
+- Restructured playground to follow Go conventions: `cmd/client/main.go` and `cmd/server/main.go`
+- Updated project structure documentation
+
+### Enhanced Playground Client
+- Added comprehensive testing options matching TypeScript playground maturity
+- **Basic Event Tracking**: Simple events, events with payload, metadata, and custom metadata
+- **Metadata Management**: Set shared metadata, track with shared metadata
+- **Batch and Flush**: Multiple event tracking, manual flush testing
+- **Error Handling**: Retry logic testing, invalid endpoint testing
+- **Lifecycle Management**: Client disposal, graceful exit
+- Organized menu with categorized options for better user experience
 
 ### Logger Interface Addition
 - Added `LoggerAdapter` interface with Debug/Info/Warn/Error methods
