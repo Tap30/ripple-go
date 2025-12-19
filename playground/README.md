@@ -4,8 +4,8 @@ A testing environment for the Ripple Go SDK with a dummy HTTP server.
 
 ## Structure
 
-- `server.go` - HTTP server that receives and logs events
-- `client.go` - Interactive CLI client for manual testing
+- `cmd/server/main.go` - HTTP server that receives and logs events
+- `cmd/client/main.go` - Interactive CLI client for manual testing
 
 ## Usage
 
@@ -13,7 +13,7 @@ A testing environment for the Ripple Go SDK with a dummy HTTP server.
 
 ```bash
 cd playground
-go run server.go
+go run cmd/server/main.go
 ```
 
 Using Makefile:
@@ -30,7 +30,7 @@ For interactive testing with a CLI menu:
 
 ```bash
 cd playground
-go run client.go
+go run cmd/client/main.go
 ```
 
 Or using Makefile:
@@ -40,11 +40,29 @@ make client
 ```
 
 The client provides a menu to:
-- **Set Context** - Automatically adds `key_i: value_i` (incremented)
-- **View Context** - Display current context
-- **Track Event** - Automatically creates `event_i` with sample payload
-- **Flush Events** - Manually trigger event flush
-- **Exit** - Gracefully shutdown
+
+**📊 Basic Event Tracking**
+- Track Simple Event
+- Track Event with Payload  
+- Track Event with Metadata
+- Track Event with Custom Metadata
+
+**🏷️ Metadata Management**
+- Set Shared Metadata
+- Track with Shared Metadata
+- View Current Context/Metadata
+
+**📦 Batch and Flush**
+- Track Multiple Events (Batch Test)
+- Manual Flush
+
+**⚠️ Error Handling**
+- Test Retry Logic (Error Event)
+- Test Invalid Endpoint
+
+**🔄 Lifecycle Management**
+- Dispose Client
+- Exit
 
 Example session:
 ```
@@ -52,21 +70,38 @@ Example session:
 Connected to: http://localhost:3000/events
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Set Context
-2. View Context
-3. Track Event
-4. Flush Events
-5. Exit
+📊 Basic Event Tracking
+1. Track Simple Event
+2. Track Event with Payload
+3. Track Event with Metadata
+4. Track Event with Custom Metadata
+
+🏷️  Metadata Management
+5. Set Shared Metadata
+6. Track with Shared Metadata
+7. View Current Context/Metadata
+
+📦 Batch and Flush
+8. Track Multiple Events (Batch Test)
+9. Manual Flush
+
+⚠️  Error Handling
+10. Test Retry Logic (Error Event)
+11. Test Invalid Endpoint
+
+🔄 Lifecycle Management
+12. Dispose Client
+13. Exit
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Choose an option: 1
 
-📝 Set Context
-✅ Context set: key_1 = value_1
+📊 Track Simple Event
+✅ Tracked: button_click
 
-Choose an option: 3
+Choose an option: 5
 
-📊 Track Event
-✅ Event 'event_1' tracked with sample payload
+🏷️  Set Shared Metadata
+✅ Shared metadata set: key_1 = value_1
 ```
 
 ### Expected Output
@@ -76,15 +111,16 @@ Choose an option: 3
 ```txt
 🚀 Event tracking server running at http://localhost:3000
 📍 Endpoint: http://localhost:3000/events
-🔑 API Key: Bearer test-api-key
+🔑 API Key: test-api-key
 📊 Received events:
 {
   "events": [
     {
-      "name": "page_view",
-      "payload": { "page": "/home" },
-      "issuedAt": 1234567890,
-      "context": { "userId": "user-123" },
+      "name": "button_click",
+      "payload": null,
+      "issuedAt": 1734622890,
+      "context": {},
+      "metadata": {},
       "platform": { "type": "server" }
     }
   ]
@@ -94,21 +130,24 @@ Choose an option: 3
 **Client:**
 
 ```txt
-📤 Tracking events...
-✅ Events tracked. Waiting for flush...
-🔄 Manual flush...
-✨ Done!
+📊 Track Simple Event
+✅ Tracked: button_click
+
+🔄 Flushing events...
+✅ Events flushed
 ```
 
 ## E2E Testing
 
 This playground is useful for:
 
-- Manual testing of the SDK
-- Verifying event delivery
-- Testing retry logic (stop/start server)
-- Testing persistence (kill client before flush)
-- Debugging event payloads
+- Manual testing of the SDK with comprehensive menu options
+- Verifying event delivery and batching behavior
+- Testing retry logic with simulated server errors
+- Testing persistence (events saved to `ripple_events.json`)
+- Testing invalid endpoints and error handling
+- Debugging event payloads and metadata
+- Testing shared metadata functionality
 
 ## Server Endpoints
 
@@ -146,35 +185,43 @@ Returns:
 
 ```bash
 # Terminal 1
-go run server.go
+go run cmd/server/main.go
 
 # Terminal 2
-go run client.go
+go run cmd/client/main.go
 ```
 
 ### 2. Test Retry Logic
 
 ```bash
 # Terminal 1
-go run server.go
+go run cmd/server/main.go
 
 # Terminal 2
-go run client.go
+go run cmd/client/main.go
+# Choose option 10 to test retry logic with error events
+# Server will return 500 error and client will retry
 
-# Stop server (Ctrl+C) before flush
+# Or stop server (Ctrl+C) before flush
 # Events should be persisted to ripple_events.json
 
 # Restart server
-go run server.go
+go run cmd/server/main.go
 
 # Run client again - persisted events should be sent
-go run client.go
+go run cmd/client/main.go
 ```
 
 ### 3. Test Batching
 
-Modify `client.go` to track more events and observe batching behavior.
+```bash
+# Use option 8 in the client menu to track 10 events
+# Observe auto-flush at batch size 5
+```
 
-### 4. Test Custom Adapters
+### 4. Test Invalid Endpoint
 
-Create custom HTTP or storage adapters and test them here.
+```bash
+# Use option 11 in the client menu
+# Creates a client with invalid endpoint to test error handling
+```
