@@ -8,6 +8,7 @@
 
 ### Timer Behavior Enhancement
 - Timer now only starts when first new event is tracked, not during SDK initialization
+- Timer automatically stops when queue becomes empty to save CPU cycles and reduce log noise
 - If persisted events exist, they remain in queue until a new event triggers the timer
 - Maintains same API while improving efficiency for apps with persisted events
 
@@ -19,6 +20,11 @@
 - Changed `NewClient()` to return `(*Client, error)` instead of panicking on invalid configuration
 - Libraries should never panic as it crashes the entire application and can't be handled by users
 - Configuration validation errors are now properly returnable and handleable
+
+### Go Version Upgrade
+- Upgraded from Go 1.23 to Go 1.25
+- Replaced manual `wg.Add(1)` + `go func()` + `defer wg.Done()` with cleaner `wg.Go()` method
+- Reduces boilerplate code and eliminates WaitGroup management errors
 
 ## Project Overview
 
@@ -727,9 +733,19 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 
 ### Timer Behavior Enhancement
 - Timer now only starts when first new event is tracked, not during SDK initialization
+- Timer automatically stops when queue becomes empty to save CPU cycles and reduce log noise
 - If persisted events exist, they remain in queue until a new event triggers the timer
 - Maintains same API while improving efficiency for apps with persisted events
 
 ### Graceful Shutdown Enhancement
 - Added `StopWithoutFlush()` and `DisposeWithoutFlush()` methods for graceful shutdown without flushing events
 - Fixed playground client exit behavior to persist events without sending to server
+
+### Error Handling Improvement
+- Changed `NewClient()` to return `(*Client, error)` instead of panicking on invalid configuration
+- Libraries should never panic as it crashes the entire application and can't be handled by users
+- Configuration validation errors are now properly returnable and handleable
+### Go Version Upgrade
+- Upgraded from Go 1.23 to Go 1.25
+- Replaced manual `wg.Add(1)` + `go func()` + `defer wg.Done()` with cleaner `wg.Go()` method
+- Reduces boilerplate code and eliminates WaitGroup management errors

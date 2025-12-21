@@ -70,9 +70,7 @@ func (d *Dispatcher) startTimerIfNeeded() {
 	if !d.timerStarted {
 		d.ticker = time.NewTicker(d.config.FlushInterval)
 		d.timerStarted = true
-		d.wg.Add(1)
-		go func() {
-			defer d.wg.Done()
+		d.wg.Go(func() {
 			for {
 				select {
 				case <-d.ticker.C:
@@ -81,7 +79,7 @@ func (d *Dispatcher) startTimerIfNeeded() {
 					return
 				}
 			}
-		}()
+		})
 	}
 }
 
