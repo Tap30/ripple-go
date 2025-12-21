@@ -1,7 +1,6 @@
 package ripple
 
 import (
-	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -137,7 +136,7 @@ func (d *Dispatcher) sendWithRetry(events []Event) error {
 		}
 
 		if attempt < d.config.MaxRetries {
-			backoff := time.Duration(math.Pow(2, float64(attempt))) * time.Second
+			backoff := time.Duration(1<<attempt) * time.Second // 2^attempt using bitwise shift
 			jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
 			sleepDuration := backoff + jitter
 			d.loggerAdapter.Debug("Retrying in %v", sleepDuration)
