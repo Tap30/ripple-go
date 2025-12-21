@@ -525,6 +525,21 @@ func (r *RedisStorage) Clear() error                       { /* ... */ return ni
 
 ## Development Workflow
 
+### CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration on all pull requests:
+
+**Workflow File**: `.github/workflows/development.yml`
+
+**Jobs**:
+- **Unit Tests** - Runs `go test ./...` and `go test -cover ./...`
+- **Lint Code** - Runs `go vet ./...` and `gofmt -s -l .` formatting check
+- **Build Check** - Verifies `go build ./...` succeeds for all packages including playground
+
+**Triggers**: Pull request events (opened, edited, synchronize, reopened)
+
+**Requirements**: All jobs must pass before PR can be merged
+
 ### Development Commands
 
 Use the root Makefile for common development tasks:
@@ -581,6 +596,23 @@ See [playground/README.md](./playground/README.md) for E2E testing scenarios.
 * Integration tests for persistence and HTTP transport
 * Benchmarks for high-volume event throughput
 * Linting via `golangci-lint`
+
+### Contributing Guidelines
+
+**Pull Request Requirements**:
+- All CI checks must pass (tests, linting, build)
+- Code must be formatted with `gofmt`
+- Tests must pass with coverage
+- No `go vet` warnings allowed
+
+**Local Development**:
+```bash
+# Run the same checks as CI
+make test        # Run tests
+make fmt         # Format code
+make lint        # Run go vet
+go build ./...   # Verify build
+```
 
 ---
 
