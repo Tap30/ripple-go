@@ -85,8 +85,25 @@ func (d *Dispatcher) startTimerIfNeeded() {
 	}
 }
 
+func (d *Dispatcher) stopTimerIfEmpty() {
+	d.timerMu.Lock()
+	defer d.timerMu.Unlock()
+
+	if d.timerStarted && d.queue.IsEmpty() {
+		d.ticker.Stop()
+		d.timerStarted = false
+		d.loggerAdapter.Debug("Timer stopped - queue is empty")
+	}
+}
+
 func (d *Dispatcher) Flush() {
 	d.flushMutex.RunAtomic(func() error {
+		// Early return if queue is empty
+		if d.queue.IsEmpty() {
+			d.stopTimerIfEmpty()
+			return nil
+		}
+
 		d.loggerAdapter.Debug("Starting flush operation")
 
 		for !d.queue.IsEmpty() {
@@ -113,6 +130,9 @@ func (d *Dispatcher) Flush() {
 				d.loggerAdapter.Debug("Successfully sent batch of %d events", len(batch))
 			}
 		}
+
+		// Stop timer if queue is now empty
+		d.stopTimerIfEmpty()
 		return nil
 	})
 }
