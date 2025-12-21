@@ -19,16 +19,16 @@ type Client struct {
 	mu              sync.RWMutex
 }
 
-func NewClient(config ClientConfig) *Client {
+func NewClient(config ClientConfig) (*Client, error) {
 	// Validate required fields
 	if config.APIKey == "" {
-		panic("apiKey must be provided in config")
+		return nil, errors.New("apiKey must be provided in config")
 	}
 	if config.Endpoint == "" {
-		panic("endpoint must be provided in config")
+		return nil, errors.New("endpoint must be provided in config")
 	}
 	if config.HTTPAdapter == nil || config.StorageAdapter == nil {
-		panic("Both HTTPAdapter and StorageAdapter must be provided in config")
+		return nil, errors.New("both HTTPAdapter and StorageAdapter must be provided in config")
 	}
 
 	// Set defaults
@@ -56,7 +56,7 @@ func NewClient(config ClientConfig) *Client {
 		client.loggerAdapter = adapters.NewPrintLoggerAdapter(adapters.LogLevelWarn)
 	}
 
-	return client
+	return client, nil
 }
 
 // SetHTTPAdapter sets a custom HTTP adapter.

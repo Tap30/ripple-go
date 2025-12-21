@@ -39,12 +39,15 @@ import (
 )
 
 func main() {
-    client := ripple.NewClient(ripple.ClientConfig{
+    client, err := ripple.NewClient(ripple.ClientConfig{
         APIKey:         "your-api-key",
         Endpoint:       "https://api.example.com/events",
         HTTPAdapter:    adapters.NewNetHTTPAdapter(),
         StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
     })
+    if err != nil {
+        panic(err)
+    }
 
     if err := client.Init(); err != nil {
         panic(err)
@@ -131,12 +134,15 @@ func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers m
 }
 
 // Use custom adapter
-client := ripple.NewClient(ripple.ClientConfig{
+client, err := ripple.NewClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    &MyHTTPAdapter{},
     StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
 })
+if err != nil {
+    panic(err)
+}
 client.Init()
 ```
 
@@ -170,12 +176,15 @@ func (r *RedisStorage) Clear() error {
 }
 
 // Use custom adapter
-client := ripple.NewClient(ripple.ClientConfig{
+client, err := ripple.NewClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    adapters.NewNetHTTPAdapter(),
     StorageAdapter: &RedisStorage{},
 })
+if err != nil {
+    panic(err)
+}
 client.Init()
 ```
 

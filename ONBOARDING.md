@@ -15,6 +15,11 @@
 - Added `StopWithoutFlush()` and `DisposeWithoutFlush()` methods for graceful shutdown without flushing events
 - Fixed playground client exit behavior to persist events without sending to server
 
+### Error Handling Improvement
+- Changed `NewClient()` to return `(*Client, error)` instead of panicking on invalid configuration
+- Libraries should never panic as it crashes the entire application and can't be handled by users
+- Configuration validation errors are now properly returnable and handleable
+
 ## Project Overview
 
 Ripple Go is a high-performance, scalable, and fault-tolerant event tracking SDK implemented as a single Go package. It provides reliable event delivery, batching, retries, persistence, and graceful shutdown for server-side applications.
@@ -353,12 +358,15 @@ import (
     "github.com/Tap30/ripple-go/adapters"
 )
 
-client := ripple.NewClient(ripple.ClientConfig{
+client, err := ripple.NewClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    adapters.NewNetHTTPAdapter(),
     StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
 })
+if err != nil {
+    panic(err)
+}
 
 // Initialize client (required before tracking)
 if err := client.Init(); err != nil {
@@ -415,7 +423,7 @@ err := client.Track("user_signup", map[string]interface{}{
 ### Custom Configuration
 
 ```go
-client := ripple.NewClient(ripple.ClientConfig{
+client, err := ripple.NewClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     APIKeyHeader:   stringPtr("Authorization"), // Custom header name
@@ -426,6 +434,9 @@ client := ripple.NewClient(ripple.ClientConfig{
     StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
     LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
 })
+if err != nil {
+    panic(err)
+}
 ```
 
 ### Custom Adapters
@@ -443,12 +454,15 @@ func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers m
 }
 
 // Usage
-client := ripple.NewClient(ripple.ClientConfig{
+client, err := ripple.NewClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    &MyHTTPAdapter{},
     StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
 })
+if err != nil {
+    panic(err)
+}
 ```
 
 #### Custom Logger Adapter
@@ -477,13 +491,16 @@ func (l *MyLoggerAdapter) Error(message string, args ...interface{}) {
 }
 
 // Usage
-client := ripple.NewClient(ripple.ClientConfig{
+client, err := ripple.NewClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    adapters.NewNetHTTPAdapter(),
     StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
     LoggerAdapter:  &MyLoggerAdapter{logger: log.New(os.Stdout, "", log.LstdFlags)},
 })
+if err != nil {
+    panic(err)
+}
 ```
 
 ### Custom Storage Adapter
@@ -581,6 +598,7 @@ See [playground/README.md](./playground/README.md) for E2E testing scenarios.
 * Persistent queueing
 * Retried delivery with backoff
 * Safe process shutdown
+* Proper error handling (no panics in library code)
 
 ### Simplicity
 

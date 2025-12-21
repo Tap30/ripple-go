@@ -23,7 +23,8 @@ var eventCounter int
 func main() {
 	scanner = bufio.NewScanner(os.Stdin)
 
-	client = ripple.NewClient(ripple.ClientConfig{
+	var err error
+	client, err = ripple.NewClient(ripple.ClientConfig{
 		APIKey:         "test-api-key",
 		Endpoint:       "http://localhost:3000/events",
 		FlushInterval:  5 * time.Second,
@@ -33,6 +34,11 @@ func main() {
 		StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
 		LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
 	})
+
+	if err != nil {
+		fmt.Printf("❌ Failed to create client: %v\n", err)
+		return
+	}
 
 	if err := client.Init(); err != nil {
 		fmt.Printf("❌ Failed to initialize client: %v\n", err)
@@ -184,7 +190,7 @@ func testInvalidEndpoint() {
 	fmt.Println("\n⚠️  Test Invalid Endpoint")
 
 	// Create a new client with invalid endpoint
-	errorClient := ripple.NewClient(ripple.ClientConfig{
+	errorClient, err := ripple.NewClient(ripple.ClientConfig{
 		APIKey:         "test-key",
 		Endpoint:       "http://localhost:9999/invalid",
 		FlushInterval:  5 * time.Second,
@@ -194,6 +200,11 @@ func testInvalidEndpoint() {
 		StorageAdapter: adapters.NewFileStorageAdapter("error_events.json"),
 		LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelWarn),
 	})
+
+	if err != nil {
+		fmt.Printf("❌ Failed to create error client: %v\n\n", err)
+		return
+	}
 
 	if err := errorClient.Init(); err != nil {
 		fmt.Printf("❌ Failed to init error client: %v\n\n", err)
