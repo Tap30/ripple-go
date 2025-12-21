@@ -614,6 +614,21 @@ make lint        # Run go vet
 go build ./...   # Verify build
 ```
 
+### GitHub Templates
+
+The project includes GitHub templates to ensure consistent contributions:
+
+**Pull Request Template** (`.github/pull_request_template.md`):
+- Provides checklists for Bug and Feature PRs
+- Ensures proper issue linking with `fixes #number`
+- Requires tests and documentation for new features
+
+**Issue Templates** (`.github/ISSUE_TEMPLATE/`):
+- **Bug Report** (`bug_report.md`) - Structured template for reporting bugs with Go-specific environment details (OS, Go version, SDK version)
+- **Feature Request** (`feature_request.md`) - Template for suggesting new features with problem description and proposed solutions
+
+These templates automatically appear when users create issues or pull requests, ensuring high-quality contributions and comprehensive bug reports.
+
 ---
 
 ## Design Principles
