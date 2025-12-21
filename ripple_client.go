@@ -27,8 +27,8 @@ func NewClient(config ClientConfig) *Client {
 	if config.Endpoint == "" {
 		panic("endpoint must be provided in config")
 	}
-	if config.Adapters.HTTPAdapter == nil || config.Adapters.StorageAdapter == nil {
-		panic("Both httpAdapter and storageAdapter must be provided in config.adapters")
+	if config.HTTPAdapter == nil || config.StorageAdapter == nil {
+		panic("Both HTTPAdapter and StorageAdapter must be provided in config")
 	}
 
 	// Set defaults
@@ -45,13 +45,13 @@ func NewClient(config ClientConfig) *Client {
 	client := &Client{
 		config:          config,
 		metadataManager: NewMetadataManager(),
-		httpAdapter:     config.Adapters.HTTPAdapter,
-		storageAdapter:  config.Adapters.StorageAdapter,
+		httpAdapter:     config.HTTPAdapter,
+		storageAdapter:  config.StorageAdapter,
 	}
 
 	// Use provided logger or default
-	if config.Adapters.LoggerAdapter != nil {
-		client.loggerAdapter = config.Adapters.LoggerAdapter
+	if config.LoggerAdapter != nil {
+		client.loggerAdapter = config.LoggerAdapter
 	} else {
 		client.loggerAdapter = adapters.NewPrintLoggerAdapter(adapters.LogLevelWarn)
 	}

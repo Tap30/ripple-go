@@ -11,16 +11,10 @@ func stringPtr(s string) *string {
 
 func createTestConfig() ClientConfig {
 	return ClientConfig{
-		APIKey:   "test-key",
-		Endpoint: "http://test.com",
-		Adapters: struct {
-			HTTPAdapter    HTTPAdapter
-			StorageAdapter StorageAdapter
-			LoggerAdapter  LoggerAdapter
-		}{
-			HTTPAdapter:    &mockHTTPAdapter{},
-			StorageAdapter: &mockStorageAdapter{},
-		},
+		APIKey:         "test-key",
+		Endpoint:       "http://test.com",
+		HTTPAdapter:    &mockHTTPAdapter{},
+		StorageAdapter: &mockStorageAdapter{},
 	}
 }
 
@@ -32,15 +26,9 @@ func TestClient_ConfigValidation(t *testing.T) {
 			}
 		}()
 		NewClient(ClientConfig{
-			Endpoint: "http://test.com",
-			Adapters: struct {
-				HTTPAdapter    HTTPAdapter
-				StorageAdapter StorageAdapter
-				LoggerAdapter  LoggerAdapter
-			}{
-				HTTPAdapter:    &mockHTTPAdapter{},
-				StorageAdapter: &mockStorageAdapter{},
-			},
+			Endpoint:       "http://test.com",
+			HTTPAdapter:    &mockHTTPAdapter{},
+			StorageAdapter: &mockStorageAdapter{},
 		})
 	})
 
@@ -51,15 +39,9 @@ func TestClient_ConfigValidation(t *testing.T) {
 			}
 		}()
 		NewClient(ClientConfig{
-			APIKey: "test-key",
-			Adapters: struct {
-				HTTPAdapter    HTTPAdapter
-				StorageAdapter StorageAdapter
-				LoggerAdapter  LoggerAdapter
-			}{
-				HTTPAdapter:    &mockHTTPAdapter{},
-				StorageAdapter: &mockStorageAdapter{},
-			},
+			APIKey:         "test-key",
+			HTTPAdapter:    &mockHTTPAdapter{},
+			StorageAdapter: &mockStorageAdapter{},
 		})
 	})
 
@@ -70,15 +52,9 @@ func TestClient_ConfigValidation(t *testing.T) {
 			}
 		}()
 		NewClient(ClientConfig{
-			APIKey:   "test-key",
-			Endpoint: "http://test.com",
-			Adapters: struct {
-				HTTPAdapter    HTTPAdapter
-				StorageAdapter StorageAdapter
-				LoggerAdapter  LoggerAdapter
-			}{
-				StorageAdapter: &mockStorageAdapter{},
-			},
+			APIKey:         "test-key",
+			Endpoint:       "http://test.com",
+			StorageAdapter: &mockStorageAdapter{},
 		})
 	})
 
@@ -89,15 +65,9 @@ func TestClient_ConfigValidation(t *testing.T) {
 			}
 		}()
 		NewClient(ClientConfig{
-			APIKey:   "test-key",
-			Endpoint: "http://test.com",
-			Adapters: struct {
-				HTTPAdapter    HTTPAdapter
-				StorageAdapter StorageAdapter
-				LoggerAdapter  LoggerAdapter
-			}{
-				HTTPAdapter: &mockHTTPAdapter{},
-			},
+			APIKey:      "test-key",
+			Endpoint:    "http://test.com",
+			HTTPAdapter: &mockHTTPAdapter{},
 		})
 	})
 }

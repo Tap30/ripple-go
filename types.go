@@ -27,17 +27,15 @@ func (e *HTTPError) Error() string {
 }
 
 type ClientConfig struct {
-	APIKey        string
-	Endpoint      string
-	APIKeyHeader  *string
-	FlushInterval time.Duration
-	MaxBatchSize  int
-	MaxRetries    int
-	Adapters      struct {
-		HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
-		StorageAdapter StorageAdapter // Required: Custom storage adapter
-		LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter (default: PrintLoggerAdapter with WARN level)
-	}
+	APIKey         string
+	Endpoint       string
+	APIKeyHeader   *string
+	FlushInterval  time.Duration
+	MaxBatchSize   int
+	MaxRetries     int
+	HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
+	StorageAdapter StorageAdapter // Required: Custom storage adapter
+	LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter (default: PrintLoggerAdapter with WARN level)
 }
 
 type DispatcherConfig struct {

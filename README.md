@@ -40,8 +40,10 @@ import (
 
 func main() {
     client := ripple.NewClient(ripple.ClientConfig{
-        APIKey:   "your-api-key",
-        Endpoint: "https://api.example.com/events",
+        APIKey:         "your-api-key",
+        Endpoint:       "https://api.example.com/events",
+        HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+        StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
     })
 
     if err := client.Init(); err != nil {
@@ -74,11 +76,14 @@ func main() {
 
 ```go
 type ClientConfig struct {
-    APIKey        string        // Required: API authentication key
-    Endpoint      string        // Required: Event collection endpoint
-    FlushInterval time.Duration // Optional: Default 5s
-    MaxBatchSize  int           // Optional: Default 10
-    MaxRetries    int           // Optional: Default 3
+    APIKey         string         // Required: API authentication key
+    Endpoint       string         // Required: Event collection endpoint
+    FlushInterval  time.Duration  // Optional: Default 5s
+    MaxBatchSize   int            // Optional: Default 10
+    MaxRetries     int            // Optional: Default 3
+    HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
+    StorageAdapter StorageAdapter // Required: Custom storage adapter
+    LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter
 }
 ```
 
@@ -126,8 +131,12 @@ func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers m
 }
 
 // Use custom adapter
-client := ripple.NewClient(config)
-client.SetHTTPAdapter(&MyHTTPAdapter{})
+client := ripple.NewClient(ripple.ClientConfig{
+    APIKey:         "your-api-key",
+    Endpoint:       "https://api.example.com/events",
+    HTTPAdapter:    &MyHTTPAdapter{},
+    StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+})
 client.Init()
 ```
 
@@ -161,8 +170,12 @@ func (r *RedisStorage) Clear() error {
 }
 
 // Use custom adapter
-client := ripple.NewClient(config)
-client.SetStorageAdapter(&RedisStorage{})
+client := ripple.NewClient(ripple.ClientConfig{
+    APIKey:         "your-api-key",
+    Endpoint:       "https://api.example.com/events",
+    HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+    StorageAdapter: &RedisStorage{},
+})
 client.Init()
 ```
 

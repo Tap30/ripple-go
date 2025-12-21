@@ -52,17 +52,15 @@ This version is not a monorepo. It has no browser package, no Node.js package, a
 
 ```go
 type ClientConfig struct {
-    APIKey        string
-    Endpoint      string
-    APIKeyHeader  *string       // Optional: Header name for API key (default: "X-API-Key")
-    FlushInterval time.Duration // Default: 5s
-    MaxBatchSize  int           // Default: 10
-    MaxRetries    int           // Default: 3
-    Adapters      struct {
-        HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
-        StorageAdapter StorageAdapter // Required: Custom storage adapter
-        LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter (default: PrintLoggerAdapter with WARN level)
-    }
+    APIKey         string
+    Endpoint       string
+    APIKeyHeader   *string        // Optional: Header name for API key (default: "X-API-Key")
+    FlushInterval  time.Duration  // Default: 5s
+    MaxBatchSize   int            // Default: 10
+    MaxRetries     int            // Default: 3
+    HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
+    StorageAdapter StorageAdapter // Required: Custom storage adapter
+    LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter (default: PrintLoggerAdapter with WARN level)
 }
 ```
 
@@ -356,8 +354,10 @@ import (
 )
 
 client := ripple.NewClient(ripple.ClientConfig{
-    APIKey:   "your-api-key",
-    Endpoint: "https://api.example.com/events",
+    APIKey:         "your-api-key",
+    Endpoint:       "https://api.example.com/events",
+    HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+    StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
 })
 
 // Initialize client (required before tracking)
@@ -416,19 +416,15 @@ err := client.Track("user_signup", map[string]interface{}{
 
 ```go
 client := ripple.NewClient(ripple.ClientConfig{
-    APIKey:        "your-api-key",
-    Endpoint:      "https://api.example.com/events",
-    APIKeyHeader:  stringPtr("Authorization"), // Custom header name
-    FlushInterval: 10 * time.Second,           // Custom flush interval
-    MaxBatchSize:  20,                         // Custom batch size
-    MaxRetries:    5,                          // Custom retry count
-    Adapters: struct {
-        HTTPAdapter    ripple.HTTPAdapter
-        StorageAdapter ripple.StorageAdapter
-        LoggerAdapter  ripple.LoggerAdapter
-    }{
-        LoggerAdapter: adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
-    },
+    APIKey:         "your-api-key",
+    Endpoint:       "https://api.example.com/events",
+    APIKeyHeader:   stringPtr("Authorization"), // Custom header name
+    FlushInterval:  10 * time.Second,           // Custom flush interval
+    MaxBatchSize:   20,                         // Custom batch size
+    MaxRetries:     5,                          // Custom retry count
+    HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+    StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+    LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
 })
 ```
 
@@ -448,15 +444,10 @@ func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers m
 
 // Usage
 client := ripple.NewClient(ripple.ClientConfig{
-    APIKey:   "your-api-key",
-    Endpoint: "https://api.example.com/events",
-    Adapters: struct {
-        HTTPAdapter    ripple.HTTPAdapter
-        StorageAdapter ripple.StorageAdapter
-        LoggerAdapter  ripple.LoggerAdapter
-    }{
-        HTTPAdapter: &MyHTTPAdapter{},
-    },
+    APIKey:         "your-api-key",
+    Endpoint:       "https://api.example.com/events",
+    HTTPAdapter:    &MyHTTPAdapter{},
+    StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
 })
 ```
 
@@ -487,15 +478,11 @@ func (l *MyLoggerAdapter) Error(message string, args ...interface{}) {
 
 // Usage
 client := ripple.NewClient(ripple.ClientConfig{
-    APIKey:   "your-api-key",
-    Endpoint: "https://api.example.com/events",
-    Adapters: struct {
-        HTTPAdapter    ripple.HTTPAdapter
-        StorageAdapter ripple.StorageAdapter
-        LoggerAdapter  ripple.LoggerAdapter
-    }{
-        LoggerAdapter: &MyLoggerAdapter{logger: log.New(os.Stdout, "", log.LstdFlags)},
-    },
+    APIKey:         "your-api-key",
+    Endpoint:       "https://api.example.com/events",
+    HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+    StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+    LoggerAdapter:  &MyLoggerAdapter{logger: log.New(os.Stdout, "", log.LstdFlags)},
 })
 ```
 
@@ -711,7 +698,7 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 
 ### Enhanced Configuration
 - Added `APIKeyHeader` support for custom header names
-- Added `Adapters` struct in `ClientConfig` for all adapter types
+- Flattened adapter configuration directly in `ClientConfig`
 - Improved configuration validation with required field checks
 
 ### Adapter Naming Refactor
