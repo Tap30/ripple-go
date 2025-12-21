@@ -4,7 +4,7 @@ package adapters
 type HTTPResponse struct {
 	OK     bool
 	Status int
-	Data   interface{}
+	Data   any
 }
 
 // HTTPAdapter is an interface for HTTP communication.

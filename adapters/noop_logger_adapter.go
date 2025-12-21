@@ -8,7 +8,7 @@ func NewNoOpLoggerAdapter() *NoOpLoggerAdapter {
 	return &NoOpLoggerAdapter{}
 }
 
-func (n *NoOpLoggerAdapter) Debug(message string, args ...interface{}) {}
-func (n *NoOpLoggerAdapter) Info(message string, args ...interface{})  {}
-func (n *NoOpLoggerAdapter) Warn(message string, args ...interface{})  {}
-func (n *NoOpLoggerAdapter) Error(message string, args ...interface{}) {}
+func (n *NoOpLoggerAdapter) Debug(message string, args ...any) {}
+func (n *NoOpLoggerAdapter) Info(message string, args ...any)  {}
+func (n *NoOpLoggerAdapter) Warn(message string, args ...any)  {}
+func (n *NoOpLoggerAdapter) Error(message string, args ...any) {}

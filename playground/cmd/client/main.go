@@ -124,7 +124,7 @@ func trackSimpleEvent() {
 
 func trackEventWithPayload() {
 	fmt.Println("\n📊 Track Event with Payload")
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"action":    "click",
 		"target":    "button",
 		"timestamp": time.Now().Unix(),
@@ -135,7 +135,7 @@ func trackEventWithPayload() {
 
 func trackEventWithMetadata() {
 	fmt.Println("\n📊 Track Event with Metadata")
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"formId": "contact-form",
 		"fields": 5,
 	}
@@ -146,7 +146,7 @@ func trackEventWithMetadata() {
 
 func trackEventWithCustomMetadata() {
 	fmt.Println("\n📊 Track Event with Custom Metadata")
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"orderId": "order-123",
 		"amount":  99.99,
 	}
@@ -174,7 +174,7 @@ func trackWithSharedMetadata() {
 func trackMultipleEvents() {
 	fmt.Println("\n📦 Track Multiple Events (Batch Test)")
 	for i := 0; i < 10; i++ {
-		payload := map[string]interface{}{"index": i}
+		payload := map[string]any{"index": i}
 		client.Track("batch_event", payload, nil)
 	}
 	fmt.Println("✅ Tracked 10 events (should auto-flush at batch size 5)\n")
@@ -200,7 +200,7 @@ func testInvalidEndpoint() {
 		return
 	}
 
-	errorClient.Track("error_test", map[string]interface{}{"shouldFail": true}, nil)
+	errorClient.Track("error_test", map[string]any{"shouldFail": true}, nil)
 	fmt.Println("✅ Tracked event to invalid endpoint (check console for retries)\n")
 }
 
@@ -239,10 +239,10 @@ func trackEvent() {
 	name := fmt.Sprintf("event_%d", eventCounter)
 
 	// Mock sample payload
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"action":    fmt.Sprintf("action_%d", eventCounter),
 		"timestamp": time.Now().Unix(),
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"count": eventCounter,
 			"type":  "sample",
 		},
@@ -260,11 +260,11 @@ func trackEventWithError() {
 	name := fmt.Sprintf("error_event_%d", eventCounter)
 
 	// Payload with error trigger
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"action":        fmt.Sprintf("error_action_%d", eventCounter),
 		"timestamp":     time.Now().Unix(),
 		"trigger_error": true, // This will cause server to return 500
-		"data": map[string]interface{}{
+		"data": map[string]any{
 			"count": eventCounter,
 			"type":  "error_test",
 		},

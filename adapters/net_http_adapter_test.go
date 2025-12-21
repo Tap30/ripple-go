@@ -70,7 +70,7 @@ func TestNetHTTPAdapter_SendMarshalError(t *testing.T) {
 	adapter := NewNetHTTPAdapter()
 	events := []Event{{
 		Name:    "test",
-		Payload: map[string]interface{}{"invalid": make(chan int)},
+		Payload: map[string]any{"invalid": make(chan int)},
 	}}
 
 	_, err := adapter.Send("http://test.com", events, nil)

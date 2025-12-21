@@ -79,7 +79,7 @@ func TestFileStorageAdapter_SaveMarshalError(t *testing.T) {
 	adapter := NewFileStorageAdapter(filepath)
 	events := []Event{{
 		Name:    "test",
-		Payload: map[string]interface{}{"invalid": make(chan int)},
+		Payload: map[string]any{"invalid": make(chan int)},
 	}}
 	err := adapter.Save(events)
 	if err == nil {

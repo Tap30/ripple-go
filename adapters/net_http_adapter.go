@@ -24,7 +24,7 @@ func NewNetHTTPAdapter() HTTPAdapter {
 
 // Send sends events to the specified endpoint with the given headers.
 func (h *NetHTTPAdapter) Send(endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"events": events,
 	}
 

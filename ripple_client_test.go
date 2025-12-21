@@ -247,7 +247,7 @@ func TestClient_Track(t *testing.T) {
 	defer client.Dispose()
 
 	client.SetMetadata("userId", "123")
-	client.Track("page_view", map[string]interface{}{"page": "/home"}, nil)
+	client.Track("page_view", map[string]any{"page": "/home"}, nil)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -270,7 +270,7 @@ func TestClient_TrackWithMetadata(t *testing.T) {
 	defer client.Dispose()
 
 	metadata := &EventMetadata{SchemaVersion: stringPtr("1.0.0")}
-	client.Track("user_signup", map[string]interface{}{"email": "test@example.com"}, metadata)
+	client.Track("user_signup", map[string]any{"email": "test@example.com"}, metadata)
 
 	time.Sleep(100 * time.Millisecond)
 

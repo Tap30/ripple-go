@@ -587,6 +587,7 @@ See [playground/README.md](./playground/README.md) for E2E testing scenarios.
 * Single self-contained package
 * No external dependencies
 * Clean, predictable API
+* Modern Go idioms (use `any` instead of `interface{}`)
 
 ---
 
@@ -601,6 +602,7 @@ Following Go best practices:
 * Examples in `examples/` subdirectory
 * Single main package name: `ripple`
 * Adapter interfaces and implementations in `adapters` package
+* Use `any` instead of `interface{}` (Go 1.18+ best practice)
 
 ### Concurrency Model
 

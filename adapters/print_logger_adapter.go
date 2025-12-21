@@ -25,25 +25,25 @@ func (p *PrintLoggerAdapter) shouldLog(level LogLevel) bool {
 	return levels[level] >= levels[p.level]
 }
 
-func (p *PrintLoggerAdapter) Debug(message string, args ...interface{}) {
+func (p *PrintLoggerAdapter) Debug(message string, args ...any) {
 	if p.shouldLog(LogLevelDebug) {
 		log.Printf("[DEBUG] [Ripple] "+message, args...)
 	}
 }
 
-func (p *PrintLoggerAdapter) Info(message string, args ...interface{}) {
+func (p *PrintLoggerAdapter) Info(message string, args ...any) {
 	if p.shouldLog(LogLevelInfo) {
 		log.Printf("[INFO] [Ripple] "+message, args...)
 	}
 }
 
-func (p *PrintLoggerAdapter) Warn(message string, args ...interface{}) {
+func (p *PrintLoggerAdapter) Warn(message string, args ...any) {
 	if p.shouldLog(LogLevelWarn) {
 		log.Printf("[WARN] [Ripple] "+message, args...)
 	}
 }
 
-func (p *PrintLoggerAdapter) Error(message string, args ...interface{}) {
+func (p *PrintLoggerAdapter) Error(message string, args ...any) {
 	if p.shouldLog(LogLevelError) {
 		log.Printf("[ERROR] [Ripple] "+message, args...)
 	}

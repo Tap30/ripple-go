@@ -15,11 +15,11 @@ const (
 // Implement this interface to use custom loggers.
 type LoggerAdapter interface {
 	// Debug logs a debug message
-	Debug(message string, args ...interface{})
+	Debug(message string, args ...any)
 	// Info logs an info message
-	Info(message string, args ...interface{})
+	Info(message string, args ...any)
 	// Warn logs a warning message
-	Warn(message string, args ...interface{})
+	Warn(message string, args ...any)
 	// Error logs an error message
-	Error(message string, args ...interface{})
+	Error(message string, args ...any)
 }

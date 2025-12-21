@@ -4,33 +4,33 @@ import "sync"
 
 // MetadataManager manages global metadata attached to all events
 type MetadataManager struct {
-	metadata map[string]interface{}
+	metadata map[string]any
 	mu       sync.RWMutex
 }
 
 // NewMetadataManager creates a new metadata manager
 func NewMetadataManager() *MetadataManager {
 	return &MetadataManager{
-		metadata: make(map[string]interface{}),
+		metadata: make(map[string]any),
 	}
 }
 
 // Set sets a metadata value
-func (m *MetadataManager) Set(key string, value interface{}) {
+func (m *MetadataManager) Set(key string, value any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.metadata[key] = value
 }
 
 // Get gets a metadata value
-func (m *MetadataManager) Get(key string) interface{} {
+func (m *MetadataManager) Get(key string) any {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.metadata[key]
 }
 
 // GetAll returns all metadata as a copy
-func (m *MetadataManager) GetAll() map[string]interface{} {
+func (m *MetadataManager) GetAll() map[string]any {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -38,7 +38,7 @@ func (m *MetadataManager) GetAll() map[string]interface{} {
 		return nil
 	}
 
-	result := make(map[string]interface{}, len(m.metadata))
+	result := make(map[string]any, len(m.metadata))
 	for k, v := range m.metadata {
 		result[k] = v
 	}
@@ -56,5 +56,5 @@ func (m *MetadataManager) IsEmpty() bool {
 func (m *MetadataManager) Clear() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.metadata = make(map[string]interface{})
+	m.metadata = make(map[string]any)
 }

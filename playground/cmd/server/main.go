@@ -11,7 +11,7 @@ import (
 const PORT = 3000
 
 type EventsPayload struct {
-	Events []map[string]interface{} `json:"events"`
+	Events []map[string]any `json:"events"`
 }
 
 func main() {
@@ -58,7 +58,7 @@ func main() {
 
 		// Check for error trigger in any event payload
 		for _, event := range payload.Events {
-			if eventPayload, ok := event["payload"].(map[string]interface{}); ok {
+			if eventPayload, ok := event["payload"].(map[string]any); ok {
 				if trigger, exists := eventPayload["trigger_error"]; exists && trigger == true {
 					log.Printf("🔄 Client should retry this request (error triggered)")
 					w.Header().Set("Content-Type", "application/json")
@@ -71,7 +71,7 @@ func main() {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"success":  true,
 			"received": len(payload.Events),
 		})

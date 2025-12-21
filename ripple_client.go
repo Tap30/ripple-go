@@ -109,19 +109,19 @@ func (c *Client) Init() error {
 	return nil
 }
 
-func (c *Client) SetMetadata(key string, value interface{}) {
+func (c *Client) SetMetadata(key string, value any) {
 	c.metadataManager.Set(key, value)
 }
 
-func (c *Client) GetMetadata(key string) interface{} {
+func (c *Client) GetMetadata(key string) any {
 	return c.metadataManager.Get(key)
 }
 
-func (c *Client) GetAllMetadata() map[string]interface{} {
+func (c *Client) GetAllMetadata() map[string]any {
 	return c.metadataManager.GetAll()
 }
 
-func (c *Client) Track(name string, payload map[string]interface{}, metadata *EventMetadata) error {
+func (c *Client) Track(name string, payload map[string]any, metadata *EventMetadata) error {
 	c.mu.RLock()
 	initialized := c.initialized
 	c.mu.RUnlock()
