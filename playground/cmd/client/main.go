@@ -31,7 +31,7 @@ func main() {
 		MaxRetries:     3,
 		HTTPAdapter:    adapters.NewNetHTTPAdapter(),
 		StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
-		LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelInfo),
+		LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
 	})
 
 	if err := client.Init(); err != nil {
