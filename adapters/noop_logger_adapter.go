@@ -8,7 +8,22 @@ func NewNoOpLoggerAdapter() *NoOpLoggerAdapter {
 	return &NoOpLoggerAdapter{}
 }
 
-func (n *NoOpLoggerAdapter) Debug(message string, args ...any) {}
-func (n *NoOpLoggerAdapter) Info(message string, args ...any)  {}
-func (n *NoOpLoggerAdapter) Warn(message string, args ...any)  {}
-func (n *NoOpLoggerAdapter) Error(message string, args ...any) {}
+func (n *NoOpLoggerAdapter) Debug(message string, args ...any) {
+	// Intentionally empty - no-op implementation
+	_ = message
+}
+
+func (n *NoOpLoggerAdapter) Info(message string, args ...any) {
+	// Intentionally empty - no-op implementation
+	_ = message
+}
+
+func (n *NoOpLoggerAdapter) Warn(message string, args ...any) {
+	// Intentionally empty - no-op implementation
+	_ = message
+}
+
+func (n *NoOpLoggerAdapter) Error(message string, args ...any) {
+	// Intentionally empty - no-op implementation
+	_ = message
+}
