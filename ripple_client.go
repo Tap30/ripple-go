@@ -35,7 +35,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 	if config.FlushInterval == 0 {
 		config.FlushInterval = 5 * time.Second
 	}
-	if config.MaxBatchSize == 0 {
+	if !(config.MaxBatchSize > 0) {
 		config.MaxBatchSize = 10
 	}
 	if config.MaxRetries == 0 {

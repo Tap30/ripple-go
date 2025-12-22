@@ -660,21 +660,29 @@ The project uses [GoReleaser](https://goreleaser.com) for automated releases:
 - **Source archives**: Includes all source files, documentation, and examples
 
 **Release Workflow** (`.github/workflows/release.yml`):
-- **Trigger**: Push tags matching `v*` pattern (e.g., `v1.0.0`)
+- **Trigger**: Merge PR from branch matching `release/x.x.x` pattern (e.g., `release/1.0.0`)
 - **Process**: Runs tests, builds archives, generates changelog, creates GitHub release
 - **Assets**: Source archives, checksums, and release notes
 
 **Creating a Release**:
 ```bash
-# Tag a new version
-git tag v1.0.0
-git push origin v1.0.0
+# Create release branch with version in name
+git checkout -b release/0.0.1        # Stable release
+# or
+git checkout -b release/1.0.0-rc     # Release candidate
+# or  
+git checkout -b release/2.0.0-beta   # Beta release
 
+# Make any final changes, update version references, etc.
+git commit -m "Prepare release"
+git push origin release/0.0.1
+
+# Create and merge PR from release/x.x.x to main
 # GitHub Actions will automatically:
-# 1. Run tests and validation
-# 2. Create release archives
-# 3. Generate changelog
-# 4. Publish GitHub release
+# 1. Extract version from branch name
+# 2. Run tests and validation
+# 3. Create and push tag (e.g., v0.0.1, v1.0.0-rc, v2.0.0-beta)
+# 4. Generate changelog and publish GitHub release
 ```
 
 **Local Testing**:
