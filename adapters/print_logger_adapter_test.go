@@ -39,7 +39,7 @@ func TestPrintLoggerAdapter(t *testing.T) {
 	t.Run("should respect log levels", func(t *testing.T) {
 		// Test that higher level loggers don't log lower level messages
 		logger := NewPrintLoggerAdapter(LogLevelError)
-		
+
 		// These should not cause any issues (they just won't output)
 		logger.Debug("debug message")
 		logger.Info("info message")
@@ -49,7 +49,7 @@ func TestPrintLoggerAdapter(t *testing.T) {
 
 	t.Run("should handle none level", func(t *testing.T) {
 		logger := NewPrintLoggerAdapter(LogLevelNone)
-		
+
 		// None of these should output anything
 		logger.Debug("debug message")
 		logger.Info("info message")
