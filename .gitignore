@@ -37,3 +37,5 @@ error_events.json
 # Playground binaries
 playground/client
 playground/server
+# Added by goreleaser init:
+dist/

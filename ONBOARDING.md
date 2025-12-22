@@ -532,25 +532,44 @@ The project uses GitHub Actions for continuous integration on all pull requests:
 **Workflow File**: `.github/workflows/development.yml`
 
 **Jobs**:
-- **Unit Tests** - Runs `go test ./...` and `go test -cover ./...`
-- **Lint Code** - Runs `go vet ./...` and `gofmt -s -l .` formatting check
-- **Build Check** - Verifies `go build ./...` succeeds for all packages including playground
+- **Unit Tests** - Runs `make test` and `make test-cover`
+- **Lint Code** - Runs `make fmt-check` and `make lint`
+- **Build Check** - Runs `make build`
 
 **Triggers**: Pull request events (opened, edited, synchronize, reopened)
 
 **Requirements**: All jobs must pass before PR can be merged
+
+**Benefits**: Uses Makefile commands for consistency - modify behavior by updating only the Makefile
 
 ### Development Commands
 
 Use the root Makefile for common development tasks:
 
 ```bash
-make test       # Run all tests
-make test-cover # Run tests with coverage
-make fmt        # Format all Go files
-make lint       # Run go vet linter
-make clean      # Clean build artifacts
+# Testing
+make test         # Run all tests
+make test-cover   # Run tests with coverage
+
+# Code Quality
+make fmt          # Format all Go files
+make fmt-check    # Check if code is formatted
+make lint         # Run go vet linter
+
+# Building
+make build        # Build all packages
+
+# CI/CD
+make check        # Run all CI checks (fmt, lint, test, build)
+make release-test # Test release configuration
+make release      # Create actual release
+
+# Development
+make dev-deps     # Install development dependencies (goreleaser)
+make clean        # Clean build artifacts and release files
 ```
+
+The `make check` command runs the same validation as GitHub Actions CI, ensuring local development consistency.
 
 ### Testing
 
@@ -608,10 +627,11 @@ See [playground/README.md](./playground/README.md) for E2E testing scenarios.
 **Local Development**:
 ```bash
 # Run the same checks as CI
+make check       # All CI checks in one command
 make test        # Run tests
 make fmt         # Format code
 make lint        # Run go vet
-go build ./...   # Verify build
+make build       # Verify build
 ```
 
 ### GitHub Templates
@@ -628,6 +648,43 @@ The project includes GitHub templates to ensure consistent contributions:
 - **Feature Request** (`feature_request.md`) - Template for suggesting new features with problem description and proposed solutions
 
 These templates automatically appear when users create issues or pull requests, ensuring high-quality contributions and comprehensive bug reports.
+
+### Release Process
+
+The project uses [GoReleaser](https://goreleaser.com) for automated releases:
+
+**Configuration**: `.goreleaser.yaml`
+- **Library-focused**: Skips binary builds, focuses on source code releases
+- **Multi-platform archives**: Creates tar.gz (Linux/macOS) and zip (Windows) archives
+- **Comprehensive changelog**: Groups commits by type (Features, Bug Fixes, Performance)
+- **Source archives**: Includes all source files, documentation, and examples
+
+**Release Workflow** (`.github/workflows/release.yml`):
+- **Trigger**: Push tags matching `v*` pattern (e.g., `v1.0.0`)
+- **Process**: Runs tests, builds archives, generates changelog, creates GitHub release
+- **Assets**: Source archives, checksums, and release notes
+
+**Creating a Release**:
+```bash
+# Tag a new version
+git tag v1.0.0
+git push origin v1.0.0
+
+# GitHub Actions will automatically:
+# 1. Run tests and validation
+# 2. Create release archives
+# 3. Generate changelog
+# 4. Publish GitHub release
+```
+
+**Local Testing**:
+```bash
+# Test release configuration
+goreleaser check
+
+# Create snapshot release (no publishing)
+goreleaser release --snapshot --clean
+```
 
 ---
 

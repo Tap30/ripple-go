@@ -30,11 +30,8 @@ jobs:
       - name: "📦 Download dependencies"
         run: go mod download
 
-      - name: "🔍 Run tests"
-        run: go test ./...
-
-      - name: "📊 Run tests with coverage"
-        run: go test -cover ./...
+      - name: "🔍 Run tests with coverage"
+        run: make test-cover
 
   lint:
     name: "Lint Code"
@@ -53,16 +50,11 @@ jobs:
       - name: "📦 Download dependencies"
         run: go mod download
 
-      - name: "🔍 Run go vet"
-        run: go vet ./...
+      - name: "🔍 Check code formatting"
+        run: make fmt-check
 
-      - name: "🔍 Run go fmt check"
-        run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "The following files are not formatted:"
-            gofmt -s -l .
-            exit 1
-          fi
+      - name: "🔍 Run linter"
+        run: make lint
 
   build:
     name: "Build Check"
@@ -82,9 +74,4 @@ jobs:
         run: go mod download
 
       - name: "🔨 Build all packages"
-        run: go build ./...
-
-      - name: "🔨 Build playground"
-        run: |
-          cd playground
-          go build ./...
+        run: make build
