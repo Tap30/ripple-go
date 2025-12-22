@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  auto-release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: "☁️ Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "🔍 Extract version from branch name"
+        id: extract-version
+        run: ./scripts/extract-version.sh "${{ github.event.pull_request.head.ref }}"
+
+      - name: "🔧 Setup Go"
+        if: steps.extract-version.outputs.should_release == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: "📦 Download dependencies"
+        if: steps.extract-version.outputs.should_release == 'true'
+        run: go mod download
+
+      - name: "🔍 Run tests before release"
+        if: steps.extract-version.outputs.should_release == 'true'
+        run: make test-cover
+
+      - name: "🏷️ Create and push tag"
+        if: steps.extract-version.outputs.should_release == 'true'
+        run: |
+          VERSION="${{ steps.extract-version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
+          echo "Created and pushed tag: $VERSION"
+
+      - name: "🚀 Run GoReleaser"
+        if: steps.extract-version.outputs.should_release == 'true'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

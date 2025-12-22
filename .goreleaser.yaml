@@ -1,0 +1,104 @@
+# GoReleaser configuration for Ripple Go SDK
+# Documentation: https://goreleaser.com
+
+version: 2
+
+project_name: ripple-go
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+    - go vet ./...
+
+# Since this is a library, we don't need to build binaries
+# Instead, we'll focus on source code releases
+builds:
+  - skip: true
+
+archives:
+  - formats: ["tar.gz"]
+    format_overrides:
+      - goos: windows
+        formats: ["zip"]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - ONBOARDING.md
+      - LICENSE*
+      - CHANGELOG*
+      - "*.go"
+      - "go.mod"
+      - "go.sum"
+      - "adapters/**"
+      - "playground/**"
+      - "examples/**"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^style:"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Performance Improvements
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: Tap30
+    name: ripple-go
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Ripple Go SDK {{ .Tag }}
+    
+    A fast, resilient, and scalable event-tracking SDK built in Go.
+    
+    ### Installation
+    
+    ```bash
+    go get github.com/Tap30/ripple-go@{{ .Tag }}
+    ```
+  footer: |
+    ## Full Changelog
+    
+    **Full Changelog**: https://github.com/Tap30/ripple-go/compare/{{ .PreviousTag }}...{{ .Tag }}
+    
+    ---
+    
+    Released by [GoReleaser](https://github.com/goreleaser/goreleaser) 🚀
+
+# Generate checksums for release assets
+checksum:
+  name_template: 'checksums.txt'
+
+# Create source code archives
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}_{{ .Version }}_source'
+  format: tar.gz
+
+# Announce releases
+announce:
+  skip: '{{gt .Patch 0}}'

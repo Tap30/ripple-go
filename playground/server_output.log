@@ -1,0 +1,87 @@
+2025/12/10 18:42:11 🚀 Event tracking server running at http://localhost:3000
+2025/12/10 18:42:11 📍 Endpoint: http://localhost:3000/events
+2025/12/10 18:42:37 🔑 API Key: Bearer test-api-key
+2025/12/10 18:42:37 📊 Received events:
+{
+  "events": [
+    {
+      "issuedAt": 1765379546295,
+      "metadata": {
+        "schemaVersion": "1.0.0"
+      },
+      "name": "event_1",
+      "payload": {
+        "action": "action_1",
+        "data": {
+          "count": 1,
+          "type": "sample"
+        },
+        "timestamp": 1765379546
+      },
+      "platform": {
+        "type": "server"
+      }
+    },
+    {
+      "issuedAt": 1765379552408,
+      "metadata": {
+        "schemaVersion": "1.0.0"
+      },
+      "name": "event_1",
+      "payload": {
+        "action": "action_1",
+        "data": {
+          "count": 1,
+          "type": "sample"
+        },
+        "timestamp": 1765379552
+      },
+      "platform": {
+        "type": "server"
+      }
+    }
+  ]
+}
+2025/12/10 18:43:36 🔑 API Key: Bearer test-api-key
+2025/12/10 18:43:36 📊 Received events:
+{
+  "events": [
+    {
+      "issuedAt": 1765379606210,
+      "metadata": {
+        "schemaVersion": "1.0.0"
+      },
+      "name": "event_1",
+      "payload": {
+        "action": "action_1",
+        "data": {
+          "count": 1,
+          "type": "sample"
+        },
+        "timestamp": 1765379606
+      },
+      "platform": {
+        "type": "server"
+      }
+    },
+    {
+      "issuedAt": 1765379612191,
+      "metadata": {
+        "schemaVersion": "1.0.0"
+      },
+      "name": "event_1",
+      "payload": {
+        "action": "action_1",
+        "data": {
+          "count": 1,
+          "type": "sample"
+        },
+        "timestamp": 1765379612
+      },
+      "platform": {
+        "type": "server"
+      }
+    }
+  ]
+}
+signal: terminated

@@ -39,10 +39,15 @@ import (
 )
 
 func main() {
-    client := ripple.NewClient(ripple.ClientConfig{
-        APIKey:   "your-api-key",
-        Endpoint: "https://api.example.com/events",
+    client, err := ripple.NewClient(ripple.ClientConfig{
+        APIKey:         "your-api-key",
+        Endpoint:       "https://api.example.com/events",
+        HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+        StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
     })
+    if err != nil {
+        panic(err)
+    }
 
     if err := client.Init(); err != nil {
         panic(err)
@@ -74,11 +79,14 @@ func main() {
 
 ```go
 type ClientConfig struct {
-    APIKey        string        // Required: API authentication key
-    Endpoint      string        // Required: Event collection endpoint
-    FlushInterval time.Duration // Optional: Default 5s
-    MaxBatchSize  int           // Optional: Default 10
-    MaxRetries    int           // Optional: Default 3
+    APIKey         string         // Required: API authentication key
+    Endpoint       string         // Required: Event collection endpoint
+    FlushInterval  time.Duration  // Optional: Default 5s
+    MaxBatchSize   int            // Optional: Default 10
+    MaxRetries     int            // Optional: Default 3
+    HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
+    StorageAdapter StorageAdapter // Required: Custom storage adapter
+    LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter
 }
 ```
 
@@ -126,8 +134,15 @@ func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers m
 }
 
 // Use custom adapter
-client := ripple.NewClient(config)
-client.SetHTTPAdapter(&MyHTTPAdapter{})
+client, err := ripple.NewClient(ripple.ClientConfig{
+    APIKey:         "your-api-key",
+    Endpoint:       "https://api.example.com/events",
+    HTTPAdapter:    &MyHTTPAdapter{},
+    StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+})
+if err != nil {
+    panic(err)
+}
 client.Init()
 ```
 
@@ -161,8 +176,15 @@ func (r *RedisStorage) Clear() error {
 }
 
 // Use custom adapter
-client := ripple.NewClient(config)
-client.SetStorageAdapter(&RedisStorage{})
+client, err := ripple.NewClient(ripple.ClientConfig{
+    APIKey:         "your-api-key",
+    Endpoint:       "https://api.example.com/events",
+    HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+    StorageAdapter: &RedisStorage{},
+})
+if err != nil {
+    panic(err)
+}
 client.Init()
 ```
 
@@ -181,7 +203,7 @@ See [ONBOARDING.md](./ONBOARDING.md) for detailed architecture documentation.
 ## API Contract
 
 See the  
-[API Contract Documentation](https://github.com/Tap30/ripple/blob/main/API_CONTRACT.md)  
+[API Contract Documentation](https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md)  
 for details on the shared, framework-independent interface all Ripple SDKs follow.
 
 ## Development
@@ -224,10 +246,10 @@ See [playground/README.md](./playground/README.md) for more details.
 ## Contributing
 
 Check the  
-[contributing guide](https://github.com/Tap30/ripple-ts/blob/main/CONTRIBUTING.md)  
+[contributing guide](https://github.com/Tap30/ripple-go/blob/main/CONTRIBUTING.md)  
 for information on development workflow, proposing improvements, and running tests.
 
 ## License
 
 Distributed under the  
-[MIT license](https://github.com/Tap30/ripple-ts/blob/main/packages/browser/LICENSE).
+[MIT license](https://github.com/Tap30/ripple-go/blob/main/packages/browser/LICENSE).

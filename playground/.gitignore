@@ -1,0 +1,9 @@
+# Binaries
+server_bin
+client_bin
+server_test
+client_test
+interactive_test
+
+# Persisted events
+ripple_events.json
