@@ -113,11 +113,7 @@ func (c *Client) SetMetadata(key string, value any) {
 	c.metadataManager.Set(key, value)
 }
 
-func (c *Client) GetMetadata(key string) any {
-	return c.metadataManager.Get(key)
-}
-
-func (c *Client) GetAllMetadata() map[string]any {
+func (c *Client) GetMetadata() map[string]any {
 	return c.metadataManager.GetAll()
 }
 
@@ -130,32 +126,13 @@ func (c *Client) Track(name string, payload map[string]any, metadata *EventMetad
 		return errors.New("client not initialized. Call Init() before tracking events")
 	}
 
-	// Merge shared metadata with event-specific metadata
-	var finalMetadata *EventMetadata
-	sharedMetadata := c.metadataManager.GetAll()
-
-	if sharedMetadata != nil || metadata != nil {
-		finalMetadata = &EventMetadata{}
-
-		// Start with shared metadata
-		if sharedMetadata != nil {
-			// Convert shared metadata to EventMetadata fields as needed
-			// For now, we'll keep it simple and use the existing metadata structure
-		}
-
-		// Override with event-specific metadata
-		if metadata != nil {
-			*finalMetadata = *metadata
-		}
-	}
-
+	// Use only the provided metadata (no context merging)
 	event := Event{
 		Name:      name,
 		Payload:   payload,
-		Metadata:  finalMetadata,
+		Metadata:  metadata,
 		IssuedAt:  time.Now().UnixMilli(),
-		Context:   sharedMetadata, // Use shared metadata as context
-		SessionID: nil,            // Server platform doesn't use session ID
+		SessionID: nil, // Server platform doesn't use session ID
 		Platform:  &Platform{Type: "server"},
 	}
 

@@ -127,10 +127,11 @@ func TestClient_MetadataManagement(t *testing.T) {
 		client.SetMetadata("userId", "123")
 		client.SetMetadata("sessionId", "abc")
 
-		if client.GetMetadata("userId") != "123" {
+		metadata := client.GetMetadata()
+		if metadata["userId"] != "123" {
 			t.Fatal("expected userId to be 123")
 		}
-		if client.GetMetadata("sessionId") != "abc" {
+		if metadata["sessionId"] != "abc" {
 			t.Fatal("expected sessionId to be abc")
 		}
 	})
@@ -139,7 +140,7 @@ func TestClient_MetadataManagement(t *testing.T) {
 		client.SetMetadata("key1", "value1")
 		client.SetMetadata("key2", "value2")
 
-		metadata := client.GetAllMetadata()
+		metadata := client.GetMetadata()
 		if metadata["key1"] != "value1" || metadata["key2"] != "value2" {
 			t.Fatal("metadata values do not match")
 		}
@@ -148,9 +149,9 @@ func TestClient_MetadataManagement(t *testing.T) {
 	t.Run("should return nil when no metadata is set", func(t *testing.T) {
 		newClient := createTestClient()
 
-		metadata := newClient.GetAllMetadata()
-		if metadata != nil {
-			t.Fatal("expected nil metadata when none is set")
+		metadata := newClient.GetMetadata()
+		if len(metadata) != 0 {
+			t.Fatal("expected empty metadata when none is set")
 		}
 	})
 }
@@ -243,7 +244,7 @@ func TestClient_SetGetMetadata(t *testing.T) {
 	client.SetMetadata("userId", "123")
 	client.SetMetadata("appVersion", "1.0.0")
 
-	metadata := client.GetAllMetadata()
+	metadata := client.GetMetadata()
 	if metadata["userId"] != "123" || metadata["appVersion"] != "1.0.0" {
 		t.Fatal("metadata values do not match")
 	}
@@ -279,9 +280,9 @@ func TestClient_MetadataManager_Clear(t *testing.T) {
 		t.Fatal("expected metadata manager to be empty after clear")
 	}
 
-	metadata := client.GetAllMetadata()
-	if metadata != nil {
-		t.Fatal("expected nil metadata after clear")
+	metadata := client.GetMetadata()
+	if len(metadata) != 0 {
+		t.Fatal("expected empty metadata after clear")
 	}
 }
 

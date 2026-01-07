@@ -6,7 +6,6 @@ type Event struct {
 	Payload   map[string]any `json:"payload"`
 	Metadata  *EventMetadata `json:"metadata"`
 	IssuedAt  int64          `json:"issuedAt"`
-	Context   map[string]any `json:"context"`
 	SessionID *string        `json:"sessionId"`
 	Platform  *Platform      `json:"platform"`
 }
