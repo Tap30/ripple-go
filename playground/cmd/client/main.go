@@ -124,7 +124,10 @@ func readInput(prompt string) string {
 
 func trackSimpleEvent() {
 	fmt.Println("\n📊 Track Simple Event")
-	client.Track("button_click", nil, nil)
+	if err := client.Track("button_click", nil, nil); err != nil {
+		fmt.Printf("❌ Error tracking event: %v\n\n", err)
+		return
+	}
 	fmt.Println("✅ Tracked: button_click\n")
 }
 
@@ -167,7 +170,10 @@ func setSharedMetadata() {
 	key := fmt.Sprintf("key_%d", contextCounter)
 	value := fmt.Sprintf("value_%d", contextCounter)
 
-	client.SetMetadata(key, value)
+	if err := client.SetMetadata(key, value); err != nil {
+		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
+		return
+	}
 	fmt.Printf("✅ Shared metadata set: %s = %s\n\n", key, value)
 }
 
@@ -227,7 +233,10 @@ func setContext() {
 	key := fmt.Sprintf("key_%d", contextCounter)
 	value := fmt.Sprintf("value_%d", contextCounter)
 
-	client.SetMetadata(key, value)
+	if err := client.SetMetadata(key, value); err != nil {
+		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
+		return
+	}
 	fmt.Printf("✅ Metadata set: %s = %s\n\n", key, value)
 }
 

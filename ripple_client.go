@@ -8,6 +8,15 @@ import (
 	"github.com/Tap30/ripple-go/adapters"
 )
 
+var (
+	serverPlatform = &Platform{Type: "server"}
+	eventPool      = sync.Pool{
+		New: func() interface{} {
+			return &Event{}
+		},
+	}
+)
+
 type Client[TEvents ~map[string]any, TMetadata ~map[string]any] struct {
 	config          ClientConfig
 	metadataManager *MetadataManager
@@ -121,15 +130,38 @@ func (c *Client[TEvents, TMetadata]) Init() error {
 	return nil
 }
 
-func (c *Client[TEvents, TMetadata]) SetMetadata(key string, value any) {
+func (c *Client[TEvents, TMetadata]) SetMetadata(key string, value any) error {
+	keyLen := len(key)
+	if keyLen == 0 {
+		return errors.New("metadata key cannot be empty")
+	}
+	if keyLen > 255 {
+		return errors.New("metadata key cannot exceed 255 characters")
+	}
+
 	c.metadataManager.Set(key, value)
+	return nil
 }
 
 func (c *Client[TEvents, TMetadata]) GetMetadata() map[string]any {
 	return c.metadataManager.GetAll()
 }
 
+func (c *Client[TEvents, TMetadata]) GetSessionId() *string {
+	// Server environments don't use session IDs
+	return nil
+}
+
 func (c *Client[TEvents, TMetadata]) Track(name string, payload any, metadata *EventMetadata) error {
+	// Validate event name (optimized single check)
+	nameLen := len(name)
+	if nameLen == 0 {
+		return errors.New("event name cannot be empty")
+	}
+	if nameLen > 255 {
+		return errors.New("event name cannot exceed 255 characters")
+	}
+
 	c.mu.RLock()
 	initialized := c.initialized
 	c.mu.RUnlock()
@@ -149,17 +181,20 @@ func (c *Client[TEvents, TMetadata]) Track(name string, payload any, metadata *E
 	}
 
 	// Use only the provided metadata (no context merging)
-	event := Event{
+	now := time.Now().UnixMilli()
+	event := eventPool.Get().(*Event)
+	*event = Event{
 		Name:      name,
 		Payload:   eventPayload,
 		Metadata:  metadata,
-		IssuedAt:  time.Now().UnixMilli(),
-		SessionID: nil, // Server platform doesn't use session ID
-		Platform:  &Platform{Type: "server"},
+		IssuedAt:  now,
+		SessionID: nil, // Server environments don't use session IDs
+		Platform:  serverPlatform,
 	}
 
 	c.loggerAdapter.Debug("Tracking event: %s", name)
-	c.dispatcher.Enqueue(event)
+	c.dispatcher.Enqueue(*event)
+	eventPool.Put(event)
 	return nil
 }
 

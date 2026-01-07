@@ -124,8 +124,14 @@ func TestClient_MetadataManagement(t *testing.T) {
 	client := createTestClient()
 
 	t.Run("should set and get metadata", func(t *testing.T) {
-		client.SetMetadata("userId", "123")
-		client.SetMetadata("sessionId", "abc")
+		err := client.SetMetadata("userId", "123")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		err = client.SetMetadata("sessionId", "abc")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		metadata := client.GetMetadata()
 		if metadata["userId"] != "123" {
@@ -137,8 +143,14 @@ func TestClient_MetadataManagement(t *testing.T) {
 	})
 
 	t.Run("should return all metadata", func(t *testing.T) {
-		client.SetMetadata("key1", "value1")
-		client.SetMetadata("key2", "value2")
+		err := client.SetMetadata("key1", "value1")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		err = client.SetMetadata("key2", "value2")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
 		metadata := client.GetMetadata()
 		if metadata["key1"] != "value1" || metadata["key2"] != "value2" {
@@ -238,11 +250,98 @@ func TestClient_DisposeWithoutFlush(t *testing.T) {
 	}
 }
 
+func TestClient_TrackValidation(t *testing.T) {
+	client := createTestClient()
+	err := client.Init()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer client.Dispose()
+
+	t.Run("should reject empty event name", func(t *testing.T) {
+		err := client.Track("", map[string]any{"key": "value"}, nil)
+		if err == nil {
+			t.Fatal("expected error for empty event name")
+		}
+		if err.Error() != "event name cannot be empty" {
+			t.Fatalf("unexpected error message: %v", err)
+		}
+	})
+
+	t.Run("should reject event name exceeding 255 characters", func(t *testing.T) {
+		longName := string(make([]byte, 256))
+		for i := range longName {
+			longName = longName[:i] + "a" + longName[i+1:]
+		}
+
+		err := client.Track(longName, map[string]any{"key": "value"}, nil)
+		if err == nil {
+			t.Fatal("expected error for long event name")
+		}
+		if err.Error() != "event name cannot exceed 255 characters" {
+			t.Fatalf("unexpected error message: %v", err)
+		}
+	})
+
+	t.Run("should accept valid event name", func(t *testing.T) {
+		err := client.Track("valid_event", map[string]any{"key": "value"}, nil)
+		if err != nil {
+			t.Fatalf("unexpected error for valid event: %v", err)
+		}
+	})
+}
+
+func TestClient_SetMetadataValidation(t *testing.T) {
+	client := createTestClient()
+
+	t.Run("should reject empty metadata key", func(t *testing.T) {
+		err := client.SetMetadata("", "value")
+		if err == nil {
+			t.Fatal("expected error for empty metadata key")
+		}
+		if err.Error() != "metadata key cannot be empty" {
+			t.Fatalf("unexpected error message: %v", err)
+		}
+	})
+
+	t.Run("should reject metadata key exceeding 255 characters", func(t *testing.T) {
+		longKey := string(make([]byte, 256))
+		for i := range longKey {
+			longKey = longKey[:i] + "a" + longKey[i+1:]
+		}
+
+		err := client.SetMetadata(longKey, "value")
+		if err == nil {
+			t.Fatal("expected error for long metadata key")
+		}
+		if err.Error() != "metadata key cannot exceed 255 characters" {
+			t.Fatalf("unexpected error message: %v", err)
+		}
+	})
+
+	t.Run("should accept valid metadata key", func(t *testing.T) {
+		err := client.SetMetadata("valid_key", "value")
+		if err != nil {
+			t.Fatalf("unexpected error for valid metadata key: %v", err)
+		}
+	})
+}
+
+func TestClient_GetSessionId(t *testing.T) {
+	client := createTestClient()
+
+	// Server environments should always return nil for session ID
+	sessionID := client.GetSessionId()
+	if sessionID != nil {
+		t.Fatalf("expected nil session ID for server environment, got %v", *sessionID)
+	}
+}
+
 func TestClient_SetGetMetadata(t *testing.T) {
 	client := createTestClient()
 
-	client.SetMetadata("userId", "123")
-	client.SetMetadata("appVersion", "1.0.0")
+	_ = client.SetMetadata("userId", "123")
+	_ = client.SetMetadata("appVersion", "1.0.0")
 
 	metadata := client.GetMetadata()
 	if metadata["userId"] != "123" || metadata["appVersion"] != "1.0.0" {
@@ -259,7 +358,7 @@ func TestClient_MetadataManager_IsEmpty(t *testing.T) {
 	}
 
 	// Set metadata and test IsEmpty returns false
-	client.SetMetadata("key", "value")
+	_ = client.SetMetadata("key", "value")
 	if client.metadataManager.IsEmpty() {
 		t.Fatal("expected metadata manager to not be empty")
 	}
@@ -269,8 +368,8 @@ func TestClient_MetadataManager_Clear(t *testing.T) {
 	client := createTestClient()
 
 	// Set some metadata
-	client.SetMetadata("key1", "value1")
-	client.SetMetadata("key2", "value2")
+	_ = client.SetMetadata("key1", "value1")
+	_ = client.SetMetadata("key2", "value2")
 
 	// Clear metadata
 	client.metadataManager.Clear()
@@ -299,7 +398,7 @@ func TestClient_Track(t *testing.T) {
 	}
 	defer client.Dispose()
 
-	client.SetMetadata("userId", "123")
+	_ = client.SetMetadata("userId", "123")
 	client.Track("page_view", map[string]any{"page": "/home"}, nil)
 
 	time.Sleep(100 * time.Millisecond)

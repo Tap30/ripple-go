@@ -57,20 +57,28 @@ func main() {
     defer client.Dispose()
 
     // Set global metadata
-    client.SetMetadata("userId", "123")
-    client.SetMetadata("appVersion", "1.0.0")
+    if err := client.SetMetadata("userId", "123"); err != nil {
+        panic(err)
+    }
+    if err := client.SetMetadata("appVersion", "1.0.0"); err != nil {
+        panic(err)
+    }
 
     // Track events
-    client.Track("page_view", map[string]interface{}{
+    if err := client.Track("page_view", map[string]interface{}{
         "page": "/home",
-    }, nil)
+    }, nil); err != nil {
+        panic(err)
+    }
 
     // Track with metadata
-    client.Track("user_action", map[string]interface{}{
+    if err := client.Track("user_action", map[string]interface{}{
         "button": "submit",
     }, &ripple.EventMetadata{
         SchemaVersion: "1.0.0",
-    })
+    }); err != nil {
+        panic(err)
+    }
 
     // Manually flush
     client.Flush()
@@ -111,13 +119,19 @@ func main() {
     defer client.Dispose()
 
     // Type-safe metadata setting
-    client.SetMetadata("userId", "123")
-    client.SetMetadata("appVersion", "1.0.0")
+    if err := client.SetMetadata("userId", "123"); err != nil {
+        panic(err)
+    }
+    if err := client.SetMetadata("appVersion", "1.0.0"); err != nil {
+        panic(err)
+    }
 
     // Type-safe event tracking
-    client.Track("page_view", map[string]any{
+    if err := client.Track("page_view", map[string]any{
         "page": "/home",
-    }, nil)
+    }, nil); err != nil {
+        panic(err)
+    }
 
     client.Flush()
 }
@@ -145,14 +159,17 @@ type ClientConfig struct {
 #### `Init() error`
 Initializes the client and starts the dispatcher. Must be called before tracking events.
 
-#### `Track(name string, payload map[string]interface{}, metadata *EventMetadata)`
-Tracks an event with optional payload and metadata.
+#### `Track(name string, payload map[string]interface{}, metadata *EventMetadata) error`
+Tracks an event with optional payload and metadata. Returns error if event name is empty, exceeds 255 characters, or if client is not initialized.
 
-#### `SetMetadata(key string, value interface{})`
-Sets a metadata value that will be attached to all subsequent events.
+#### `SetMetadata(key string, value interface{}) error`
+Sets a metadata value that will be attached to all subsequent events. Returns error if key is empty or exceeds 255 characters.
 
 #### `GetMetadata() map[string]interface{}`
 Returns a copy of all stored metadata. Returns empty map if no metadata is set.
+
+#### `GetSessionId() *string`
+Returns the current session ID or `nil` if not set. Always returns `nil` for server environments.
 
 #### `Flush()`
 Manually triggers a flush of all queued events.
