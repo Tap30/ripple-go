@@ -8,7 +8,7 @@ import (
 	"github.com/Tap30/ripple-go/adapters"
 )
 
-type Client struct {
+type Client[TEvents ~map[string]any, TMetadata ~map[string]any] struct {
 	config          ClientConfig
 	metadataManager *MetadataManager
 	dispatcher      *Dispatcher
@@ -19,30 +19,34 @@ type Client struct {
 	mu              sync.RWMutex
 }
 
-func NewClient(config ClientConfig) (*Client, error) {
+// NewClient creates a new type-safe Ripple client
+func NewClient[TEvents ~map[string]any, TMetadata ~map[string]any](config ClientConfig) (*Client[TEvents, TMetadata], error) {
 	// Validate required fields
 	if config.APIKey == "" {
-		return nil, errors.New("apiKey must be provided in config")
+		return nil, errors.New("APIKey is required")
 	}
 	if config.Endpoint == "" {
-		return nil, errors.New("endpoint must be provided in config")
+		return nil, errors.New("Endpoint is required")
 	}
-	if config.HTTPAdapter == nil || config.StorageAdapter == nil {
-		return nil, errors.New("both HTTPAdapter and StorageAdapter must be provided in config")
+	if config.HTTPAdapter == nil {
+		return nil, errors.New("HTTPAdapter is required")
+	}
+	if config.StorageAdapter == nil {
+		return nil, errors.New("StorageAdapter is required")
 	}
 
 	// Set defaults
 	if config.FlushInterval == 0 {
 		config.FlushInterval = 5 * time.Second
 	}
-	if !(config.MaxBatchSize > 0) {
+	if config.MaxBatchSize <= 0 {
 		config.MaxBatchSize = 10
 	}
 	if config.MaxRetries == 0 {
 		config.MaxRetries = 3
 	}
 
-	client := &Client{
+	client := &Client[TEvents, TMetadata]{
 		config:          config,
 		metadataManager: NewMetadataManager(),
 		httpAdapter:     config.HTTPAdapter,
@@ -59,19 +63,27 @@ func NewClient(config ClientConfig) (*Client, error) {
 	return client, nil
 }
 
+// DefaultClient is a type alias for Client with default event and metadata types
+type DefaultClient = Client[map[string]any, map[string]any]
+
+// NewDefaultClient creates a new client with default types for backward compatibility
+func NewDefaultClient(config ClientConfig) (*DefaultClient, error) {
+	return NewClient[map[string]any, map[string]any](config)
+}
+
 // SetHTTPAdapter sets a custom HTTP adapter.
 // Must be called before Init().
-func (c *Client) SetHTTPAdapter(adapter HTTPAdapter) {
+func (c *Client[TEvents, TMetadata]) SetHTTPAdapter(adapter HTTPAdapter) {
 	c.httpAdapter = adapter
 }
 
 // SetStorageAdapter sets a custom storage adapter.
 // Must be called before Init().
-func (c *Client) SetStorageAdapter(adapter StorageAdapter) {
+func (c *Client[TEvents, TMetadata]) SetStorageAdapter(adapter StorageAdapter) {
 	c.storageAdapter = adapter
 }
 
-func (c *Client) Init() error {
+func (c *Client[TEvents, TMetadata]) Init() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -109,15 +121,15 @@ func (c *Client) Init() error {
 	return nil
 }
 
-func (c *Client) SetMetadata(key string, value any) {
+func (c *Client[TEvents, TMetadata]) SetMetadata(key string, value any) {
 	c.metadataManager.Set(key, value)
 }
 
-func (c *Client) GetMetadata() map[string]any {
+func (c *Client[TEvents, TMetadata]) GetMetadata() map[string]any {
 	return c.metadataManager.GetAll()
 }
 
-func (c *Client) Track(name string, payload map[string]any, metadata *EventMetadata) error {
+func (c *Client[TEvents, TMetadata]) Track(name string, payload any, metadata *EventMetadata) error {
 	c.mu.RLock()
 	initialized := c.initialized
 	c.mu.RUnlock()
@@ -126,10 +138,20 @@ func (c *Client) Track(name string, payload map[string]any, metadata *EventMetad
 		return errors.New("client not initialized. Call Init() before tracking events")
 	}
 
+	// Convert payload to map[string]any if provided
+	var eventPayload map[string]any
+	if payload != nil {
+		if p, ok := payload.(map[string]any); ok {
+			eventPayload = p
+		} else {
+			return errors.New("payload must be of type map[string]any or nil")
+		}
+	}
+
 	// Use only the provided metadata (no context merging)
 	event := Event{
 		Name:      name,
-		Payload:   payload,
+		Payload:   eventPayload,
 		Metadata:  metadata,
 		IssuedAt:  time.Now().UnixMilli(),
 		SessionID: nil, // Server platform doesn't use session ID
@@ -141,7 +163,7 @@ func (c *Client) Track(name string, payload map[string]any, metadata *EventMetad
 	return nil
 }
 
-func (c *Client) Flush() {
+func (c *Client[TEvents, TMetadata]) Flush() {
 	c.mu.RLock()
 	initialized := c.initialized
 	c.mu.RUnlock()
@@ -155,7 +177,7 @@ func (c *Client) Flush() {
 	c.dispatcher.Flush()
 }
 
-func (c *Client) Dispose() error {
+func (c *Client[TEvents, TMetadata]) Dispose() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -170,7 +192,7 @@ func (c *Client) Dispose() error {
 }
 
 // DisposeWithoutFlush stops the client and persists events to storage without flushing to server
-func (c *Client) DisposeWithoutFlush() error {
+func (c *Client[TEvents, TMetadata]) DisposeWithoutFlush() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

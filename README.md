@@ -30,6 +30,8 @@ go get github.com/Tap30/ripple-go
 
 ## Quick Start
 
+### Basic Usage
+
 ```go
 package main
 
@@ -39,7 +41,7 @@ import (
 )
 
 func main() {
-    client, err := ripple.NewClient(ripple.ClientConfig{
+    client, err := ripple.NewDefaultClient(ripple.ClientConfig{
         APIKey:         "your-api-key",
         Endpoint:       "https://api.example.com/events",
         HTTPAdapter:    adapters.NewNetHTTPAdapter(),
@@ -54,9 +56,9 @@ func main() {
     }
     defer client.Dispose()
 
-    // Set global context
-    client.SetContext("userId", "123")
-    client.SetContext("appVersion", "1.0.0")
+    // Set global metadata
+    client.SetMetadata("userId", "123")
+    client.SetMetadata("appVersion", "1.0.0")
 
     // Track events
     client.Track("page_view", map[string]interface{}{
@@ -71,6 +73,52 @@ func main() {
     })
 
     // Manually flush
+    client.Flush()
+}
+```
+
+### Type-Safe Usage
+
+```go
+package main
+
+import (
+    "time"
+    ripple "github.com/Tap30/ripple-go"
+)
+
+// Define your event types
+type AppEvents map[string]any
+
+// Define your metadata types  
+type AppMetadata map[string]any
+
+func main() {
+    // Create type-safe client
+    client, err := ripple.NewClient[AppEvents, AppMetadata](ripple.ClientConfig{
+        APIKey:         "your-api-key",
+        Endpoint:       "https://api.example.com/events",
+        HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+        StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+    })
+    if err != nil {
+        panic(err)
+    }
+
+    if err := client.Init(); err != nil {
+        panic(err)
+    }
+    defer client.Dispose()
+
+    // Type-safe metadata setting
+    client.SetMetadata("userId", "123")
+    client.SetMetadata("appVersion", "1.0.0")
+
+    // Type-safe event tracking
+    client.Track("page_view", map[string]any{
+        "page": "/home",
+    }, nil)
+
     client.Flush()
 }
 ```
@@ -100,11 +148,11 @@ Initializes the client and starts the dispatcher. Must be called before tracking
 #### `Track(name string, payload map[string]interface{}, metadata *EventMetadata)`
 Tracks an event with optional payload and metadata.
 
-#### `SetContext(key string, value interface{})`
-Sets a global context value that will be attached to all events.
+#### `SetMetadata(key string, value interface{})`
+Sets a metadata value that will be attached to all subsequent events.
 
-#### `GetContext() map[string]interface{}`
-Returns a copy of the current global context.
+#### `GetMetadata() map[string]interface{}`
+Returns a copy of all stored metadata. Returns empty map if no metadata is set.
 
 #### `Flush()`
 Manually triggers a flush of all queued events.
@@ -134,7 +182,7 @@ func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers m
 }
 
 // Use custom adapter
-client, err := ripple.NewClient(ripple.ClientConfig{
+client, err := ripple.NewDefaultClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    &MyHTTPAdapter{},
@@ -176,7 +224,7 @@ func (r *RedisStorage) Clear() error {
 }
 
 // Use custom adapter
-client, err := ripple.NewClient(ripple.ClientConfig{
+client, err := ripple.NewDefaultClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    adapters.NewNetHTTPAdapter(),

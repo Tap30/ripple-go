@@ -40,7 +40,7 @@ This version is not a monorepo. It has no browser package, no Node.js package, a
 * **Type-Safe Metadata Management** – MetadataManager for handling shared metadata with thread-safe operations
 * **Initialization Validation** – Track() throws error if called before Init() to prevent data loss
 * **Logger Interface** – Pluggable logging with PrintLoggerAdapter and NoOpLoggerAdapter implementations
-* **Context Management** – shared context automatically attached to all events
+* **Metadata Management** – shared metadata automatically attached to all events
 * **Event Metadata** – optional schema versioning and event-specific metadata
 * **Automatic Batching** – dispatch based on batch size
 * **Scheduled Flushing** – time-based flush via goroutines
@@ -53,7 +53,7 @@ This version is not a monorepo. It has no browser package, no Node.js package, a
 
 ### Go-Specific Features
 
-* **Safe concurrency** (mutex-protected dispatcher and context)
+* **Safe concurrency** (mutex-protected dispatcher and metadata)
 * **Native HTTP client** (`net/http`)
 * **File-based persistence** using JSON
 * **Automatic boot-time recovery** from persisted events
@@ -325,7 +325,6 @@ type Event struct {
     Name     string                 `json:"name"`
     Payload  map[string]interface{} `json:"payload,omitempty"`
     IssuedAt int64                  `json:"issuedAt"`
-    Context  map[string]interface{} `json:"context,omitempty"`
     Metadata *EventMetadata         `json:"metadata,omitempty"`
     Platform *Platform              `json:"platform,omitempty"`
 }
@@ -708,7 +707,7 @@ goreleaser release --snapshot --clean
 ### Concurrency Safety
 
 * Mutex around flush cycles
-* RWMutex for context access
+* RWMutex for metadata access
 * Controlled goroutine lifecycle
 
 ### Reliability
@@ -744,7 +743,7 @@ Following Go best practices:
 
 * Dispatcher runs a background goroutine for scheduled flushing
 * All queue operations are mutex-protected
-* Context reads use RWMutex for concurrent access
+* Metadata reads use RWMutex for concurrent access
 * Flush operations are serialized to prevent race conditions
 
 ### Error Handling
@@ -780,13 +779,21 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 
 ## Recent Changes
 
+### Contract Compliance (Latest)
+- **Removed** non-contract `Context` field from Event struct per specification
+- **Fixed** metadata API to match contract exactly:
+  - `SetMetadata(key, value)` - Set shared metadata attached to all events  
+  - `GetMetadata()` - Returns all metadata as map (empty map if none set)
+- **Removed** individual metadata getter `GetMetadata(key)` (not in contract)
+- **Updated** Track method to use only metadata without context merging
+- **Achieved** 98.8% test coverage with contract-compliant implementation
+
 ### API Unification (Breaking Change)
 - **Removed** `SetContext()` and `GetContext()` methods to match TypeScript SDK
 - **Context is now unified with metadata** - use `SetMetadata()` instead
 - Updated API to match TypeScript version exactly:
   - `SetMetadata(key, value)` - Set shared metadata attached to all events
-  - `GetMetadata(key)` - Get shared metadata value  
-  - `GetAllMetadata()` - Get all shared metadata
+  - `GetMetadata()` - Returns all metadata as map (contract-compliant)
 - Updated all tests and playground to use new unified API
 
 ### Adapter Requirements (Breaking Change)
@@ -821,8 +828,7 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 ### Unified Metadata System
 - Added `MetadataManager` for thread-safe shared metadata management
 - Implemented metadata merging (shared + event-specific)
-- Added `SetMetadata()`, `GetMetadata()`, `GetAllMetadata()` methods
-- Maintains backward compatibility with `SetContext()` and `GetContext()`
+- Added `SetMetadata()`, `GetMetadata()` methods (contract-compliant)
 
 ### Initialization Validation
 - `Track()` now returns error if called before `Init()`

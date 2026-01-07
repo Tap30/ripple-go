@@ -15,7 +15,7 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-var client *ripple.Client
+var client *ripple.DefaultClient
 var scanner *bufio.Scanner
 var contextCounter int
 var eventCounter int
@@ -24,7 +24,7 @@ func main() {
 	scanner = bufio.NewScanner(os.Stdin)
 
 	var err error
-	client, err = ripple.NewClient(ripple.ClientConfig{
+	client, err = ripple.NewDefaultClient(ripple.ClientConfig{
 		APIKey:         "test-api-key",
 		Endpoint:       "http://localhost:3000/events",
 		FlushInterval:  5 * time.Second,
@@ -190,7 +190,7 @@ func testInvalidEndpoint() {
 	fmt.Println("\n⚠️  Test Invalid Endpoint")
 
 	// Create a new client with invalid endpoint
-	errorClient, err := ripple.NewClient(ripple.ClientConfig{
+	errorClient, err := ripple.NewDefaultClient(ripple.ClientConfig{
 		APIKey:         "test-key",
 		Endpoint:       "http://localhost:9999/invalid",
 		FlushInterval:  5 * time.Second,
@@ -233,7 +233,7 @@ func setContext() {
 
 func viewContext() {
 	fmt.Println("\n👀 Current Metadata")
-	metadata := client.GetAllMetadata()
+	metadata := client.GetMetadata()
 	if len(metadata) == 0 {
 		fmt.Println("(empty)")
 	} else {
