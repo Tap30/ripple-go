@@ -421,7 +421,7 @@ func TestClient_TrackWithMetadata(t *testing.T) {
 	}
 	defer client.Dispose()
 
-	metadata := &EventMetadata{SchemaVersion: stringPtr("1.0.0")}
+	metadata := map[string]any{"schemaVersion": "1.0.0"}
 	client.Track("user_signup", map[string]any{"email": "test@example.com"}, metadata)
 
 	time.Sleep(100 * time.Millisecond)

@@ -144,7 +144,7 @@ func (c *Client) GetSessionId() *string {
 	return nil
 }
 
-func (c *Client) Track(name string, payload any, metadata *EventMetadata) error {
+func (c *Client) Track(name string, payload any, metadata map[string]any) error {
 	// Validate event name (optimized single check)
 	nameLen := len(name)
 	if nameLen == 0 {

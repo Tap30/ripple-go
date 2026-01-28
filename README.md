@@ -79,8 +79,8 @@ func main() {
     // Track with metadata
     if err := client.Track("user_action", map[string]interface{}{
         "button": "submit",
-    }, &ripple.EventMetadata{
-        SchemaVersion: "1.0.0",
+    }, map[string]interface{}{
+        "schemaVersion": "1.0.0",
     }); err != nil {
         panic(err)
     }
@@ -113,7 +113,7 @@ type ClientConfig struct {
 
 Initializes the client and starts the dispatcher. Must be called before tracking events.
 
-#### `Track(name string, payload map[string]interface{}, metadata *EventMetadata) error`
+#### `Track(name string, payload map[string]interface{}, metadata map[string]interface{}) error`
 
 Tracks an event with optional payload and metadata. Returns error if event name is empty, exceeds 255 characters, or if client is not initialized.
 

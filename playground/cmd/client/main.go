@@ -148,7 +148,7 @@ func trackEventWithMetadata() {
 		"formId": "contact-form",
 		"fields": 5,
 	}
-	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("1.0.0")}
+	metadata := map[string]any{"schemaVersion": "1.0.0"}
 	client.Track("form_submit", payload, metadata)
 	fmt.Println("✅ Tracked: form_submit with metadata\n")
 }
@@ -159,7 +159,7 @@ func trackEventWithCustomMetadata() {
 		"orderId": "order-123",
 		"amount":  99.99,
 	}
-	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("2.1.0")}
+	metadata := map[string]any{"schemaVersion": "2.1.0"}
 	client.Track("purchase_completed", payload, metadata)
 	fmt.Println("✅ Tracked: purchase_completed with rich metadata\n")
 }
@@ -268,7 +268,7 @@ func trackEvent() {
 		},
 	}
 
-	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("1.0.0")}
+	metadata := map[string]any{"schemaVersion": "1.0.0"}
 
 	client.Track(name, payload, metadata)
 	fmt.Printf("✅ Event '%s' tracked with sample payload\n\n", name)
@@ -290,7 +290,7 @@ func trackEventWithError() {
 		},
 	}
 
-	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("1.0.0")}
+	metadata := map[string]any{"schemaVersion": "1.0.0"}
 
 	client.Track(name, payload, metadata)
 	fmt.Printf("✅ Error event '%s' tracked - will trigger retry logic\n\n", name)

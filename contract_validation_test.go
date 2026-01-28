@@ -88,7 +88,7 @@ func TestContractCompliance(t *testing.T) {
 			t.Error("Init should take no parameters and return error")
 		}
 
-		// Test Track(string, any, *EventMetadata) error
+		// Test Track(string, any, map[string]any) error
 		trackMethod := clientValue.MethodByName("Track")
 		trackType := trackMethod.Type()
 		if trackType.NumIn() != 3 || trackType.NumOut() != 1 {
@@ -142,7 +142,7 @@ func TestEventStructCompliance(t *testing.T) {
 		"Payload":   "map[string]interface {}",
 		"IssuedAt":  "int64",
 		"SessionID": "*string",
-		"Metadata":  "*adapters.EventMetadata",
+		"Metadata":  "map[string]interface {}",
 		"Platform":  "*adapters.Platform",
 	}
 

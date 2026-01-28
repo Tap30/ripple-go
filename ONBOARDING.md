@@ -340,9 +340,7 @@ Default implementation (`FileStorageAdapter`):
 ### EventMetadata
 
 ```go
-type EventMetadata struct {
-    SchemaVersion string `json:"schemaVersion,omitempty"`
-}
+type EventMetadata = map[string]any
 ```
 
 ### Platform
@@ -362,7 +360,7 @@ type Event struct {
     Name     string                 `json:"name"`
     Payload  map[string]interface{} `json:"payload,omitempty"`
     IssuedAt int64                  `json:"issuedAt"`
-    Metadata *EventMetadata         `json:"metadata,omitempty"`
+    Metadata map[string]any         `json:"metadata,omitempty"`
     Platform *Platform              `json:"platform,omitempty"`
 }
 ```
@@ -434,7 +432,7 @@ if err := client.Track("page_view", map[string]interface{}{
 // Track with event-specific metadata
 if err := client.Track("user_action", map[string]interface{}{
     "button": "submit",
-}, &ripple.EventMetadata{SchemaVersion: stringPtr("2.0.0")})
+}, map[string]any{"schemaVersion": "2.0.0"})
 
 // Manual flush
 client.Flush()
