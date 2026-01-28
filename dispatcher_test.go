@@ -182,7 +182,6 @@ func TestDispatcher_RetryWithError(t *testing.T) {
 	}
 }
 
-
 func TestDispatcher_4xxClientError_DropsEvents(t *testing.T) {
 	httpAdapter := &mockHTTPAdapter{fail: true, statusCode: 400}
 	storageAdapter := &mockStorageAdapter{}
