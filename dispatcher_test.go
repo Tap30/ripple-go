@@ -7,9 +7,10 @@ import (
 )
 
 type mockHTTPAdapter struct {
-	calls int
-	fail  bool
-	err   error
+	calls      int
+	fail       bool
+	err        error
+	statusCode int
 }
 
 func (m *mockHTTPAdapter) Send(endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error) {
@@ -18,7 +19,11 @@ func (m *mockHTTPAdapter) Send(endpoint string, events []Event, headers map[stri
 		return nil, m.err
 	}
 	if m.fail {
-		return &HTTPResponse{OK: false, Status: 500}, nil
+		status := m.statusCode
+		if status == 0 {
+			status = 500 // default to 500 for backward compatibility
+		}
+		return &HTTPResponse{OK: false, Status: status}, nil
 	}
 	return &HTTPResponse{OK: true, Status: 200}, nil
 }
@@ -182,5 +187,117 @@ func TestDispatcher_MinFunction(t *testing.T) {
 	}
 	if min(2, 8) != 2 {
 		t.Fatal("expected min(2, 8) = 2")
+	}
+}
+
+func TestDispatcher_4xxClientError_DropsEvents(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{fail: true, statusCode: 400}
+	storageAdapter := &mockStorageAdapter{}
+	config := DispatcherConfig{
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  10,
+		MaxRetries:    3,
+	}
+
+	dispatcher := NewDispatcher(config, httpAdapter, storageAdapter, nil)
+	dispatcher.Start()
+	defer dispatcher.Stop()
+
+	dispatcher.Enqueue(Event{Name: "test"})
+	dispatcher.Flush()
+
+	// Should only call once (no retries for 4xx)
+	if httpAdapter.calls != 1 {
+		t.Fatalf("expected 1 call for 4xx error, got %d", httpAdapter.calls)
+	}
+
+	// Events should not be persisted (dropped)
+	if len(storageAdapter.saved) > 0 {
+		t.Fatal("expected no events to be persisted for 4xx error")
+	}
+}
+
+func TestDispatcher_5xxServerError_RetriesAndPersists(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{fail: true, statusCode: 500}
+	storageAdapter := &mockStorageAdapter{}
+	config := DispatcherConfig{
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  10,
+		MaxRetries:    2,
+	}
+
+	dispatcher := NewDispatcher(config, httpAdapter, storageAdapter, nil)
+	dispatcher.Start()
+	defer dispatcher.Stop()
+
+	dispatcher.Enqueue(Event{Name: "test"})
+	dispatcher.Flush()
+
+	// Should retry: 1 initial + 2 retries = 3 calls
+	if httpAdapter.calls != 3 {
+		t.Fatalf("expected 3 calls for 5xx error with 2 retries, got %d", httpAdapter.calls)
+	}
+
+	// Events should be re-queued and available for persistence
+	if dispatcher.queue.Len() == 0 {
+		t.Fatal("expected events to be re-queued after 5xx max retries")
+	}
+}
+
+func TestDispatcher_NetworkError_RetriesAndPersists(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{err: errors.New("network timeout")}
+	storageAdapter := &mockStorageAdapter{}
+	config := DispatcherConfig{
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  10,
+		MaxRetries:    1,
+	}
+
+	dispatcher := NewDispatcher(config, httpAdapter, storageAdapter, nil)
+	dispatcher.Start()
+	defer dispatcher.Stop()
+
+	dispatcher.Enqueue(Event{Name: "test"})
+	dispatcher.Flush()
+
+	// Should retry: 1 initial + 1 retry = 2 calls
+	if httpAdapter.calls != 2 {
+		t.Fatalf("expected 2 calls for network error with 1 retry, got %d", httpAdapter.calls)
+	}
+
+	// Events should be re-queued and available for persistence
+	if dispatcher.queue.Len() == 0 {
+		t.Fatal("expected events to be re-queued after network error max retries")
+	}
+}
+
+func TestDispatcher_2xxSuccess_ClearsStorage(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{} // defaults to 200 OK
+	storageAdapter := &mockStorageAdapter{}
+	config := DispatcherConfig{
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  10,
+		MaxRetries:    3,
+	}
+
+	dispatcher := NewDispatcher(config, httpAdapter, storageAdapter, nil)
+	dispatcher.Start()
+	defer dispatcher.Stop()
+
+	dispatcher.Enqueue(Event{Name: "test"})
+	dispatcher.Flush()
+
+	// Should only call once (success)
+	if httpAdapter.calls != 1 {
+		t.Fatalf("expected 1 call for 2xx success, got %d", httpAdapter.calls)
+	}
+
+	// Queue should be empty after successful send
+	if dispatcher.queue.Len() != 0 {
+		t.Fatal("expected queue to be empty after successful send")
 	}
 }

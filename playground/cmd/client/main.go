@@ -156,7 +156,7 @@ func trackEventWithMetadata() {
 func trackEventWithCustomMetadata() {
 	fmt.Println("\n📊 Track Event with Custom Metadata")
 	payload := map[string]any{
-		"orderId": "order-123",v
+		"orderId": "order-123",
 		"amount":  99.99,
 	}
 	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("2.1.0")}

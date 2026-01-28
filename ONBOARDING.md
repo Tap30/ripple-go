@@ -2,7 +2,15 @@
 
 ## Recent Changes
 
-### Generic Type System Removal (Latest)
+### Smart Retry Logic Update (Latest)
+- **Updated retry behavior** - Now follows intelligent status code-based retry logic
+- **4xx Client Errors** - No retry, events are dropped (prevents infinite loops)
+- **5xx Server Errors** - Retry with exponential backoff, re-queue on max retries
+- **Network Errors** - Retry with exponential backoff, re-queue on max retries
+- **2xx Success** - Clear storage, no retry needed
+- **Enhanced logging** - Better visibility into retry decisions and event handling
+
+### Generic Type System Removal
 - **Removed all generic types** - Simplified from `Client[TEvents, TMetadata]` to simple `Client`
 - **Updated API** - Changed from `NewClient[T, M](config)` to `NewClient(config)`
 - **Performance optimizations** - Added object pooling and pre-allocated platform objects
@@ -56,7 +64,11 @@ This version is not a monorepo. It has no browser package, no Node.js package, a
 - **Event Metadata** – optional schema versioning and event-specific metadata
 - **Automatic Batching** – dispatch based on batch size
 - **Scheduled Flushing** – time-based flush via goroutines
-- **Retry Logic** – exponential backoff with jitter (1000ms × 2^attempt + random jitter)
+- **Smart Retry Logic** – Intelligent retry behavior based on HTTP status codes:
+  - **2xx (Success)**: Clear storage, no retry
+  - **4xx (Client Error)**: Drop events, no retry (prevents infinite loops)
+  - **5xx (Server Error)**: Retry with exponential backoff, re-queue on max retries
+  - **Network Errors**: Retry with exponential backoff, re-queue on max retries
 - **Event Persistence** – disk-backed storage for unsent events
 - **Queue Management** – FIFO queue using `container/list`
 - **Race Condition Prevention** – Mutex-based atomic operations for concurrent safety
@@ -209,7 +221,11 @@ Handles all operational concerns with enhanced logging and race condition preven
 * Persistence with error handling
 * Automatic and manual flushing using Mutex
 * Batch formation with configurable size
-* Retry with exponential backoff and jitter (1000ms × 2^attempt + random jitter)
+* **Smart retry logic** based on HTTP status codes:
+  - **2xx (Success)**: Clear storage, no retry
+  - **4xx (Client Error)**: Drop events, no retry (prevents infinite loops)
+  - **5xx (Server Error)**: Retry with exponential backoff, re-queue on max retries
+  - **Network Errors**: Retry with exponential backoff, re-queue on max retries
 * De-queuing and re-queuing failed events with proper ordering
 * Loading persisted events on startup
 * Graceful shutdown with optional flush
@@ -807,7 +823,7 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 - **Error Handling**: `Track()` returns error if not initialized
 - **Metadata Merging**: Shared metadata + event-specific metadata
 - **Platform Detection**: Automatic "server" platform for Go SDK
-- **Retry Logic**: Exponential backoff with jitter (1000ms × 2^attempt + random jitter)
+- **Retry Logic**: Smart retry behavior based on HTTP status codes (2xx/4xx/5xx/Network)
 - **Graceful Shutdown**: Events are flushed and persisted on dispose
 
 ---

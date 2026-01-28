@@ -17,7 +17,11 @@ A fast, resilient, and scalable event-tracking SDK built in Go.
 - **Zero Dependencies** – Built entirely with Go standard library
 - **Thread-Safe** – Concurrent event tracking with mutex protection
 - **Automatic Batching** – Efficient event grouping for network optimization
-- **Retry Logic** – Exponential backoff with jitter for failed requests
+- **Smart Retry Logic** – Intelligent retry behavior based on HTTP status codes:
+  - **2xx (Success)**: Clear storage, no retry
+  - **4xx (Client Error)**: Drop events, no retry (prevents infinite loops)
+  - **5xx (Server Error)**: Retry with exponential backoff, re-queue on max retries
+  - **Network Errors**: Retry with exponential backoff, re-queue on max retries
 - **Event Persistence** – Disk-backed storage for reliability
 - **Graceful Shutdown** – Ensures all events are flushed and persisted
 - **Pluggable Adapters** – Custom HTTP and storage implementations
