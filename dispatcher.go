@@ -98,38 +98,32 @@ func (d *Dispatcher) Flush() {
 	d.flushMutex.RunAtomic(func() error {
 		// Early return if queue is empty
 		if d.queue.IsEmpty() {
-			d.stopTimerIfEmpty()
 			return nil
 		}
 
 		d.loggerAdapter.Debug("Starting flush operation")
 
-		for !d.queue.IsEmpty() {
-			batchSize := min(d.config.MaxBatchSize, d.queue.Len())
-			batch := make([]Event, 0, batchSize)
-			for i := 0; i < batchSize; i++ {
-				if event, ok := d.queue.Dequeue(); ok {
-					batch = append(batch, event)
-				}
-			}
+		// Get all events and clear queue
+		allEvents := d.queue.ToSlice()
+		d.queue.Clear()
 
-			if len(batch) == 0 {
-				break
+		// Process events in batches
+		for i := 0; i < len(allEvents); i += d.config.MaxBatchSize {
+			end := i + d.config.MaxBatchSize
+			if end > len(allEvents) {
+				end = len(allEvents)
 			}
+			batch := allEvents[i:end]
 
 			d.loggerAdapter.Debug("Sending batch of %d events", len(batch))
 			if err := d.sendWithRetry(batch); err != nil {
 				d.loggerAdapter.Error("Failed to send batch: %v", err)
-				// sendWithRetry now handles re-queuing internally for 5xx and network errors
-				// For other errors, we don't re-queue (4xx errors drop events)
-				break
+				// sendWithRetry handles re-queuing internally for 5xx and network errors
 			} else {
 				d.loggerAdapter.Debug("Successfully sent batch of %d events", len(batch))
 			}
 		}
 
-		// Stop timer if queue is now empty
-		d.stopTimerIfEmpty()
 		return nil
 	})
 }
@@ -140,26 +134,26 @@ func (d *Dispatcher) sendWithRetry(events []Event) error {
 
 func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 	d.loggerAdapter.Debug("Sending HTTP request, attempt %d/%d", attempt+1, d.config.MaxRetries+1)
-	
+
 	resp, err := d.httpAdapter.Send(d.config.Endpoint, events, d.headers)
-	
+
 	if err != nil {
 		// Network error
 		d.loggerAdapter.Error("Network error occurred: %v", err)
-		
+
 		if attempt < d.config.MaxRetries {
 			d.loggerAdapter.Warn("Network error, retrying", map[string]interface{}{
 				"attempt":    attempt + 1,
 				"maxRetries": d.config.MaxRetries,
 				"error":      err.Error(),
 			})
-			
+
 			backoff := time.Duration(1<<attempt) * time.Second
 			jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
 			sleepDuration := backoff + jitter
 			d.loggerAdapter.Debug("Retrying in %v", sleepDuration)
 			time.Sleep(sleepDuration)
-			
+
 			return d.sendWithRetryAttempt(events, attempt+1)
 		} else {
 			// Max retries reached for network error - re-queue and persist
@@ -168,22 +162,22 @@ func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 				"eventsCount": len(events),
 				"error":       err.Error(),
 			})
-			
+
 			// Re-queue events at the front
 			for i := len(events) - 1; i >= 0; i-- {
 				d.queue.Enqueue(events[i])
 			}
-			
+
 			// Persist all events
 			allEvents := d.queue.ToSlice()
 			if len(allEvents) > 0 {
 				d.storageAdapter.Save(allEvents)
 			}
-			
+
 			return err
 		}
 	}
-	
+
 	// HTTP response received
 	if resp.Status >= 200 && resp.Status < 300 {
 		// 2xx: Success - clear storage
@@ -196,7 +190,7 @@ func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 			"status":      resp.Status,
 			"eventsCount": len(events),
 		})
-		
+
 		d.storageAdapter.Clear()
 		return nil // Don't return error for 4xx - events are intentionally dropped
 	} else if resp.Status >= 500 {
@@ -207,13 +201,13 @@ func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 				"attempt":    attempt + 1,
 				"maxRetries": d.config.MaxRetries,
 			})
-			
+
 			backoff := time.Duration(1<<attempt) * time.Second
 			jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
 			sleepDuration := backoff + jitter
 			d.loggerAdapter.Debug("Retrying in %v", sleepDuration)
 			time.Sleep(sleepDuration)
-			
+
 			return d.sendWithRetryAttempt(events, attempt+1)
 		} else {
 			// 5xx: Max retries reached - re-queue and persist
@@ -222,25 +216,25 @@ func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 				"maxRetries":  d.config.MaxRetries,
 				"eventsCount": len(events),
 			})
-			
+
 			// Re-queue events at the front
 			for i := len(events) - 1; i >= 0; i-- {
 				d.queue.Enqueue(events[i])
 			}
-			
+
 			// Persist all events
 			allEvents := d.queue.ToSlice()
 			if len(allEvents) > 0 {
 				d.storageAdapter.Save(allEvents)
 			}
-			
+
 			return &HTTPError{Status: resp.Status}
 		}
+	} else {
+		// Unexpected status code - treat as server error
+		d.loggerAdapter.Warn("Unexpected status code: %d", resp.Status)
+		return &HTTPError{Status: resp.Status}
 	}
-	
-	// Unexpected status code - treat as server error
-	d.loggerAdapter.Warn("Unexpected status code: %d", resp.Status)
-	return &HTTPError{Status: resp.Status}
 }
 
 func (d *Dispatcher) Stop() error {
@@ -273,11 +267,4 @@ func (d *Dispatcher) StopWithoutFlush() error {
 		return d.storageAdapter.Save(events)
 	}
 	return nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

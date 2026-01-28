@@ -2,6 +2,7 @@ package ripple
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -181,14 +182,6 @@ func TestDispatcher_RetryWithError(t *testing.T) {
 	}
 }
 
-func TestDispatcher_MinFunction(t *testing.T) {
-	if min(5, 3) != 3 {
-		t.Fatal("expected min(5, 3) = 3")
-	}
-	if min(2, 8) != 2 {
-		t.Fatal("expected min(2, 8) = 2")
-	}
-}
 
 func TestDispatcher_4xxClientError_DropsEvents(t *testing.T) {
 	httpAdapter := &mockHTTPAdapter{fail: true, statusCode: 400}
@@ -294,6 +287,38 @@ func TestDispatcher_2xxSuccess_ClearsStorage(t *testing.T) {
 	// Should only call once (success)
 	if httpAdapter.calls != 1 {
 		t.Fatalf("expected 1 call for 2xx success, got %d", httpAdapter.calls)
+	}
+
+	// Queue should be empty after successful send
+	if dispatcher.queue.Len() != 0 {
+		t.Fatal("expected queue to be empty after successful send")
+	}
+}
+
+func TestDispatcher_DynamicRebatching(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{} // defaults to 200 OK
+	storageAdapter := &mockStorageAdapter{}
+	config := DispatcherConfig{
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  3, // Small batch size to test rebatching
+		MaxRetries:    3,
+	}
+
+	dispatcher := NewDispatcher(config, httpAdapter, storageAdapter, nil)
+	dispatcher.Start()
+	defer dispatcher.Stop()
+
+	// Add 7 events (should create 3 batches: 3, 3, 1)
+	for i := 0; i < 7; i++ {
+		dispatcher.Enqueue(Event{Name: fmt.Sprintf("test%d", i)})
+	}
+
+	dispatcher.Flush()
+
+	// Should make 3 HTTP calls (3 batches)
+	if httpAdapter.calls != 3 {
+		t.Fatalf("expected 3 calls for dynamic rebatching, got %d", httpAdapter.calls)
 	}
 
 	// Queue should be empty after successful send

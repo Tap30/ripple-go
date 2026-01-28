@@ -2,7 +2,13 @@
 
 ## Recent Changes
 
-### Smart Retry Logic Update (Latest)
+### Dynamic Rebatching in Flush (Latest)
+- **Updated Flush logic** - Now processes all queued events in optimal batches
+- **Improved efficiency** - Clears entire queue at once, then processes in batches
+- **Better performance** - Reduces queue operations and improves throughput
+- **Matches TypeScript SDK** - Consistent behavior across all Ripple SDKs
+
+### Smart Retry Logic Update
 - **Updated retry behavior** - Now follows intelligent status code-based retry logic
 - **4xx Client Errors** - No retry, events are dropped (prevents infinite loops)
 - **5xx Server Errors** - Retry with exponential backoff, re-queue on max retries
@@ -219,6 +225,7 @@ Handles all operational concerns with enhanced logging and race condition preven
 
 * Event queueing with atomic operations
 * Persistence with error handling
+* **Dynamic rebatching** - Flush processes all events in optimal batches for better performance
 * Automatic and manual flushing using Mutex
 * Batch formation with configurable size
 * **Smart retry logic** based on HTTP status codes:
