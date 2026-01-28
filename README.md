@@ -38,10 +38,11 @@ package main
 import (
     "time"
     ripple "github.com/Tap30/ripple-go"
+    "github.com/Tap30/ripple-go/adapters"
 )
 
 func main() {
-    client, err := ripple.NewDefaultClient(ripple.ClientConfig{
+    client, err := ripple.NewClient(ripple.ClientConfig{
         APIKey:         "your-api-key",
         Endpoint:       "https://api.example.com/events",
         HTTPAdapter:    adapters.NewNetHTTPAdapter(),
@@ -85,58 +86,6 @@ func main() {
 }
 ```
 
-### Type-Safe Usage
-
-```go
-package main
-
-import (
-    "time"
-    ripple "github.com/Tap30/ripple-go"
-)
-
-// Define your event types
-type AppEvents map[string]any
-
-// Define your metadata types  
-type AppMetadata map[string]any
-
-func main() {
-    // Create type-safe client
-    client, err := ripple.NewClient[AppEvents, AppMetadata](ripple.ClientConfig{
-        APIKey:         "your-api-key",
-        Endpoint:       "https://api.example.com/events",
-        HTTPAdapter:    adapters.NewNetHTTPAdapter(),
-        StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
-    })
-    if err != nil {
-        panic(err)
-    }
-
-    if err := client.Init(); err != nil {
-        panic(err)
-    }
-    defer client.Dispose()
-
-    // Type-safe metadata setting
-    if err := client.SetMetadata("userId", "123"); err != nil {
-        panic(err)
-    }
-    if err := client.SetMetadata("appVersion", "1.0.0"); err != nil {
-        panic(err)
-    }
-
-    // Type-safe event tracking
-    if err := client.Track("page_view", map[string]any{
-        "page": "/home",
-    }, nil); err != nil {
-        panic(err)
-    }
-
-    client.Flush()
-}
-```
-
 ## Configuration
 
 ```go
@@ -157,24 +106,31 @@ type ClientConfig struct {
 ### Client Methods
 
 #### `Init() error`
+
 Initializes the client and starts the dispatcher. Must be called before tracking events.
 
 #### `Track(name string, payload map[string]interface{}, metadata *EventMetadata) error`
+
 Tracks an event with optional payload and metadata. Returns error if event name is empty, exceeds 255 characters, or if client is not initialized.
 
 #### `SetMetadata(key string, value interface{}) error`
+
 Sets a metadata value that will be attached to all subsequent events. Returns error if key is empty or exceeds 255 characters.
 
 #### `GetMetadata() map[string]interface{}`
+
 Returns a copy of all stored metadata. Returns empty map if no metadata is set.
 
 #### `GetSessionId() *string`
+
 Returns the current session ID or `nil` if not set. Always returns `nil` for server environments.
 
 #### `Flush()`
+
 Manually triggers a flush of all queued events.
 
 #### `Dispose() error`
+
 Gracefully shuts down the client, flushing and persisting all events.
 
 ## Advanced Usage
@@ -199,7 +155,7 @@ func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers m
 }
 
 // Use custom adapter
-client, err := ripple.NewDefaultClient(ripple.ClientConfig{
+client, err := ripple.NewClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    &MyHTTPAdapter{},
@@ -241,7 +197,7 @@ func (r *RedisStorage) Clear() error {
 }
 
 // Use custom adapter
-client, err := ripple.NewDefaultClient(ripple.ClientConfig{
+client, err := ripple.NewClient[map[string]any, map[string]any](ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    adapters.NewNetHTTPAdapter(),

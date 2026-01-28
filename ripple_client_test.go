@@ -22,8 +22,8 @@ func createTestConfig() ClientConfig {
 	}
 }
 
-func createTestClient() *DefaultClient {
-	client, err := NewDefaultClient(createTestConfig())
+func createTestClient() *Client {
+	client, err := NewClient(createTestConfig())
 	if err != nil {
 		panic(err) // Only panic in tests
 	}
@@ -32,7 +32,7 @@ func createTestClient() *DefaultClient {
 
 func TestClient_ConfigValidation(t *testing.T) {
 	t.Run("should return error if APIKey is missing", func(t *testing.T) {
-		_, err := NewDefaultClient(ClientConfig{
+		_, err := NewClient(ClientConfig{
 			Endpoint:       "http://test.com",
 			HTTPAdapter:    &mockHTTPAdapter{},
 			StorageAdapter: &mockStorageAdapter{},
@@ -46,7 +46,7 @@ func TestClient_ConfigValidation(t *testing.T) {
 	})
 
 	t.Run("should return error if Endpoint is missing", func(t *testing.T) {
-		_, err := NewDefaultClient(ClientConfig{
+		_, err := NewClient(ClientConfig{
 			APIKey:         "test-key",
 			HTTPAdapter:    &mockHTTPAdapter{},
 			StorageAdapter: &mockStorageAdapter{},
@@ -60,7 +60,7 @@ func TestClient_ConfigValidation(t *testing.T) {
 	})
 
 	t.Run("should return error if HTTPAdapter is missing", func(t *testing.T) {
-		_, err := NewDefaultClient(ClientConfig{
+		_, err := NewClient(ClientConfig{
 			APIKey:         "test-key",
 			Endpoint:       "http://test.com",
 			StorageAdapter: &mockStorageAdapter{},
@@ -74,7 +74,7 @@ func TestClient_ConfigValidation(t *testing.T) {
 	})
 
 	t.Run("should return error if StorageAdapter is missing", func(t *testing.T) {
-		_, err := NewDefaultClient(ClientConfig{
+		_, err := NewClient(ClientConfig{
 			APIKey:      "test-key",
 			Endpoint:    "http://test.com",
 			HTTPAdapter: &mockHTTPAdapter{},
@@ -492,7 +492,7 @@ func TestClient_NewClient_EdgeCases(t *testing.T) {
 		config := createTestConfig()
 		config.MaxBatchSize = -5
 
-		client, err := NewDefaultClient(config)
+		client, err := NewClient(config)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -506,7 +506,7 @@ func TestClient_NewClient_EdgeCases(t *testing.T) {
 		config := createTestConfig()
 		config.MaxRetries = 0
 
-		client, err := NewDefaultClient(config)
+		client, err := NewClient(config)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -521,7 +521,7 @@ func TestClient_NewClient_EdgeCases(t *testing.T) {
 		customLogger := adapters.NewNoOpLoggerAdapter()
 		config.LoggerAdapter = customLogger
 
-		client, err := NewDefaultClient(config)
+		client, err := NewClient(config)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -584,7 +584,7 @@ func TestClient_Init_EdgeCases(t *testing.T) {
 		config := createTestConfig()
 		config.LoggerAdapter = nil
 
-		client, err := NewDefaultClient(config)
+		client, err := NewClient(config)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -616,7 +616,7 @@ func TestClient_Init_EdgeCases(t *testing.T) {
 		noopLogger := adapters.NewNoOpLoggerAdapter()
 		config.LoggerAdapter = noopLogger
 
-		client, err := NewDefaultClient(config)
+		client, err := NewClient(config)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

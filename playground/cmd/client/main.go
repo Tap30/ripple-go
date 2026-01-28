@@ -15,16 +15,16 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-var client *ripple.DefaultClient
+var client *ripple.Client
 var scanner *bufio.Scanner
-var contextCounter int
+var metadataCounter int
 var eventCounter int
 
 func main() {
 	scanner = bufio.NewScanner(os.Stdin)
 
 	var err error
-	client, err = ripple.NewDefaultClient(ripple.ClientConfig{
+	client, err = ripple.NewClient(ripple.ClientConfig{
 		APIKey:         "test-api-key",
 		Endpoint:       "http://localhost:3000/events",
 		FlushInterval:  5 * time.Second,
@@ -67,7 +67,7 @@ func main() {
 		case "6":
 			trackWithSharedMetadata()
 		case "7":
-			viewContext()
+			viewMetadata()
 		case "8":
 			trackMultipleEvents()
 		case "9":
@@ -100,7 +100,7 @@ func showMenu() {
 	fmt.Println("🏷️  Metadata Management")
 	fmt.Println("5. Set Shared Metadata")
 	fmt.Println("6. Track with Shared Metadata")
-	fmt.Println("7. View Current Context/Metadata")
+	fmt.Println("7. View Current Metadata")
 	fmt.Println()
 	fmt.Println("📦 Batch and Flush")
 	fmt.Println("8. Track Multiple Events (Batch Test)")
@@ -156,7 +156,7 @@ func trackEventWithMetadata() {
 func trackEventWithCustomMetadata() {
 	fmt.Println("\n📊 Track Event with Custom Metadata")
 	payload := map[string]any{
-		"orderId": "order-123",
+		"orderId": "order-123",v
 		"amount":  99.99,
 	}
 	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("2.1.0")}
@@ -166,9 +166,9 @@ func trackEventWithCustomMetadata() {
 
 func setSharedMetadata() {
 	fmt.Println("\n🏷️  Set Shared Metadata")
-	contextCounter++
-	key := fmt.Sprintf("key_%d", contextCounter)
-	value := fmt.Sprintf("value_%d", contextCounter)
+	metadataCounter++
+	key := fmt.Sprintf("key_%d", metadataCounter)
+	value := fmt.Sprintf("value_%d", metadataCounter)
 
 	if err := client.SetMetadata(key, value); err != nil {
 		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
@@ -196,7 +196,7 @@ func testInvalidEndpoint() {
 	fmt.Println("\n⚠️  Test Invalid Endpoint")
 
 	// Create a new client with invalid endpoint
-	errorClient, err := ripple.NewDefaultClient(ripple.ClientConfig{
+	errorClient, err := ripple.NewClient(ripple.ClientConfig{
 		APIKey:         "test-key",
 		Endpoint:       "http://localhost:9999/invalid",
 		FlushInterval:  5 * time.Second,
@@ -227,11 +227,11 @@ func disposeClient() {
 	fmt.Println("✅ Client disposed\n")
 }
 
-func setContext() {
+func setMetadata() {
 	fmt.Println("\n📝 Set Metadata")
-	contextCounter++
-	key := fmt.Sprintf("key_%d", contextCounter)
-	value := fmt.Sprintf("value_%d", contextCounter)
+	metadataCounter++
+	key := fmt.Sprintf("key_%d", metadataCounter)
+	value := fmt.Sprintf("value_%d", metadataCounter)
 
 	if err := client.SetMetadata(key, value); err != nil {
 		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
@@ -240,7 +240,7 @@ func setContext() {
 	fmt.Printf("✅ Metadata set: %s = %s\n\n", key, value)
 }
 
-func viewContext() {
+func viewMetadata() {
 	fmt.Println("\n👀 Current Metadata")
 	metadata := client.GetMetadata()
 	if len(metadata) == 0 {

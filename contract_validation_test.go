@@ -14,14 +14,14 @@ func contains(s, substr string) bool {
 // TestContractCompliance validates that all API signatures match the contract specification exactly
 func TestContractCompliance(t *testing.T) {
 	t.Run("Client type signature", func(t *testing.T) {
-		// Verify generic Client type exists
-		var client *Client[map[string]any, map[string]any]
+		// Verify Client type exists
+		var client *Client
 		clientType := reflect.TypeOf(client).Elem()
 
-		// Generic types include type parameters in the name
+		// Check type name
 		typeName := clientType.Name()
-		if !contains(typeName, "Client") {
-			t.Errorf("Expected Client in type name, got %s", typeName)
+		if typeName != "Client" {
+			t.Errorf("Expected Client type name, got %s", typeName)
 		}
 
 		// Verify it has fields
@@ -33,7 +33,7 @@ func TestContractCompliance(t *testing.T) {
 
 	t.Run("NewClient signature", func(t *testing.T) {
 		// Verify NewClient function signature
-		newClientFunc := reflect.ValueOf(NewClient[map[string]any, map[string]any])
+		newClientFunc := reflect.ValueOf(NewClient)
 		funcType := newClientFunc.Type()
 
 		// Should take 1 parameter (ClientConfig) and return 2 values (*Client, error)
@@ -51,7 +51,7 @@ func TestContractCompliance(t *testing.T) {
 	})
 
 	t.Run("Required methods exist", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 		clientValue := reflect.ValueOf(client)
 		clientType := clientValue.Type()
 
@@ -78,7 +78,7 @@ func TestContractCompliance(t *testing.T) {
 	})
 
 	t.Run("Method signatures", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 		clientValue := reflect.ValueOf(client)
 
 		// Test Init() error
@@ -163,7 +163,7 @@ func TestEventStructCompliance(t *testing.T) {
 // TestContractBehavior validates behavior matches contract requirements
 func TestContractBehavior(t *testing.T) {
 	t.Run("GetSessionId returns nil for server", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 		sessionId := client.GetSessionId()
 		if sessionId != nil {
 			t.Error("GetSessionId should return nil for server environments")
@@ -171,7 +171,7 @@ func TestContractBehavior(t *testing.T) {
 	})
 
 	t.Run("GetMetadata returns empty map when no metadata", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 		metadata := client.GetMetadata()
 		if metadata == nil {
 			t.Error("GetMetadata should return empty map, not nil")
@@ -182,7 +182,7 @@ func TestContractBehavior(t *testing.T) {
 	})
 
 	t.Run("Track requires Init", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 		err := client.Track("test", nil, nil)
 		if err == nil {
 			t.Error("Track should return error when called before Init")
@@ -190,7 +190,7 @@ func TestContractBehavior(t *testing.T) {
 	})
 
 	t.Run("Event validation", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 		client.Init()
 		defer client.Dispose()
 
@@ -212,7 +212,7 @@ func TestContractBehavior(t *testing.T) {
 	})
 
 	t.Run("Metadata validation", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 
 		// Empty key should fail
 		err := client.SetMetadata("", "value")
@@ -239,7 +239,7 @@ func TestReliability(t *testing.T) {
 	}
 
 	t.Run("Concurrent operations", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 		client.Init()
 		defer client.Dispose()
 
@@ -261,7 +261,7 @@ func TestReliability(t *testing.T) {
 	})
 
 	t.Run("Concurrent metadata operations", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 
 		done := make(chan bool, 50)
 
@@ -292,7 +292,7 @@ func TestReliability(t *testing.T) {
 	})
 
 	t.Run("Memory stability", func(t *testing.T) {
-		client, _ := NewDefaultClient(createTestConfig())
+		client, _ := NewClient(createTestConfig())
 		client.Init()
 		defer client.Dispose()
 
@@ -316,7 +316,7 @@ func TestPerformanceStability(t *testing.T) {
 		t.Skip("Skipping performance stability tests in short mode")
 	}
 
-	client, _ := NewDefaultClient(createTestConfig())
+	client, _ := NewClient(createTestConfig())
 	client.Init()
 	defer client.Dispose()
 

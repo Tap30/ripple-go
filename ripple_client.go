@@ -11,13 +11,13 @@ import (
 var (
 	serverPlatform = &Platform{Type: "server"}
 	eventPool      = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return &Event{}
 		},
 	}
 )
 
-type Client[TEvents ~map[string]any, TMetadata ~map[string]any] struct {
+type Client struct {
 	config          ClientConfig
 	metadataManager *MetadataManager
 	dispatcher      *Dispatcher
@@ -29,7 +29,7 @@ type Client[TEvents ~map[string]any, TMetadata ~map[string]any] struct {
 }
 
 // NewClient creates a new type-safe Ripple client
-func NewClient[TEvents ~map[string]any, TMetadata ~map[string]any](config ClientConfig) (*Client[TEvents, TMetadata], error) {
+func NewClient(config ClientConfig) (*Client, error) {
 	// Validate required fields
 	if config.APIKey == "" {
 		return nil, errors.New("APIKey is required")
@@ -55,7 +55,7 @@ func NewClient[TEvents ~map[string]any, TMetadata ~map[string]any](config Client
 		config.MaxRetries = 3
 	}
 
-	client := &Client[TEvents, TMetadata]{
+	client := &Client{
 		config:          config,
 		metadataManager: NewMetadataManager(),
 		httpAdapter:     config.HTTPAdapter,
@@ -72,27 +72,19 @@ func NewClient[TEvents ~map[string]any, TMetadata ~map[string]any](config Client
 	return client, nil
 }
 
-// DefaultClient is a type alias for Client with default event and metadata types
-type DefaultClient = Client[map[string]any, map[string]any]
-
-// NewDefaultClient creates a new client with default types for backward compatibility
-func NewDefaultClient(config ClientConfig) (*DefaultClient, error) {
-	return NewClient[map[string]any, map[string]any](config)
-}
-
 // SetHTTPAdapter sets a custom HTTP adapter.
 // Must be called before Init().
-func (c *Client[TEvents, TMetadata]) SetHTTPAdapter(adapter HTTPAdapter) {
+func (c *Client) SetHTTPAdapter(adapter HTTPAdapter) {
 	c.httpAdapter = adapter
 }
 
 // SetStorageAdapter sets a custom storage adapter.
 // Must be called before Init().
-func (c *Client[TEvents, TMetadata]) SetStorageAdapter(adapter StorageAdapter) {
+func (c *Client) SetStorageAdapter(adapter StorageAdapter) {
 	c.storageAdapter = adapter
 }
 
-func (c *Client[TEvents, TMetadata]) Init() error {
+func (c *Client) Init() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -130,7 +122,7 @@ func (c *Client[TEvents, TMetadata]) Init() error {
 	return nil
 }
 
-func (c *Client[TEvents, TMetadata]) SetMetadata(key string, value any) error {
+func (c *Client) SetMetadata(key string, value any) error {
 	keyLen := len(key)
 	if keyLen == 0 {
 		return errors.New("metadata key cannot be empty")
@@ -143,16 +135,16 @@ func (c *Client[TEvents, TMetadata]) SetMetadata(key string, value any) error {
 	return nil
 }
 
-func (c *Client[TEvents, TMetadata]) GetMetadata() map[string]any {
+func (c *Client) GetMetadata() map[string]any {
 	return c.metadataManager.GetAll()
 }
 
-func (c *Client[TEvents, TMetadata]) GetSessionId() *string {
+func (c *Client) GetSessionId() *string {
 	// Server environments don't use session IDs
 	return nil
 }
 
-func (c *Client[TEvents, TMetadata]) Track(name string, payload any, metadata *EventMetadata) error {
+func (c *Client) Track(name string, payload any, metadata *EventMetadata) error {
 	// Validate event name (optimized single check)
 	nameLen := len(name)
 	if nameLen == 0 {
@@ -198,7 +190,7 @@ func (c *Client[TEvents, TMetadata]) Track(name string, payload any, metadata *E
 	return nil
 }
 
-func (c *Client[TEvents, TMetadata]) Flush() {
+func (c *Client) Flush() {
 	c.mu.RLock()
 	initialized := c.initialized
 	c.mu.RUnlock()
@@ -212,7 +204,7 @@ func (c *Client[TEvents, TMetadata]) Flush() {
 	c.dispatcher.Flush()
 }
 
-func (c *Client[TEvents, TMetadata]) Dispose() error {
+func (c *Client) Dispose() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -227,7 +219,7 @@ func (c *Client[TEvents, TMetadata]) Dispose() error {
 }
 
 // DisposeWithoutFlush stops the client and persists events to storage without flushing to server
-func (c *Client[TEvents, TMetadata]) DisposeWithoutFlush() error {
+func (c *Client) DisposeWithoutFlush() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
