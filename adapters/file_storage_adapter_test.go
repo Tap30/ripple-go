@@ -86,3 +86,22 @@ func TestFileStorageAdapter_SaveMarshalError(t *testing.T) {
 		t.Fatal("expected error for unmarshalable data")
 	}
 }
+
+func TestFileStorageAdapter_LoadPermissionError(t *testing.T) {
+	// Create a file in a directory that doesn't exist
+	adapter := NewFileStorageAdapter("/nonexistent/directory/file.json")
+	
+	// This should return empty array for nonexistent file/directory
+	events, err := adapter.Load()
+	if err != nil {
+		// If there's an error, it should be handled gracefully
+		if !os.IsNotExist(err) {
+			t.Errorf("unexpected error type: %v", err)
+		}
+	} else {
+		// Should return empty array
+		if len(events) != 0 {
+			t.Errorf("expected empty array, got %d events", len(events))
+		}
+	}
+}

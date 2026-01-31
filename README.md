@@ -1,12 +1,15 @@
 <div align="center">
 
-# Ripple | Go
+<img width="64" height="64" alt="Ripple Logo" src="https://raw.githubusercontent.com/Tap30/ripple/refs/heads/main/ripple-logo.png" />
+
+# Ripple | TypeScript | Browser
 
 </div>
 
 <div align="center">
 
-A fast, resilient, and scalable event-tracking SDK built in Go.
+A high-performance, scalable, and fault-tolerant event tracking TypeScript SDK
+for browsers.
 
 </div>
 
@@ -124,6 +127,8 @@ Initializes the client and starts the dispatcher. Must be called before tracking
 #### `Track(name string, args ...any) error`
 
 Tracks an event with optional payload and metadata. Supports three usage patterns:
+
+
 - `Track(name)` - Simple event tracking
 - `Track(name, payload)` - Event with payload
 - `Track(name, payload, metadata)` - Event with payload and metadata

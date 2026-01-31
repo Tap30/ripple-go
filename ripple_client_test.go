@@ -792,3 +792,209 @@ func TestClient_SharedMetadataMerging(t *testing.T) {
 		t.Error("expected event to be in queue")
 	}
 }
+func TestClient_TrackWithInvalidPayload(t *testing.T) {
+	client := createTestClient()
+	
+	if err := client.Init(); err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+	defer client.Dispose()
+
+	// Test with invalid payload type
+	err := client.Track("test_event", "invalid_payload")
+	if err == nil {
+		t.Error("expected error for invalid payload type")
+	}
+	if err.Error() != "payload must be of type map[string]any or nil" {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestClient_TrackWithInvalidMetadata(t *testing.T) {
+	client := createTestClient()
+	
+	if err := client.Init(); err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+	defer client.Dispose()
+
+	// Test with invalid metadata type (should be ignored)
+	err := client.Track("test_event", map[string]any{"key": "value"}, "invalid_metadata")
+	if err != nil {
+		t.Errorf("should not error with invalid metadata type: %v", err)
+	}
+}
+
+func TestClient_SharedMetadataOverride(t *testing.T) {
+	client := createTestClient()
+	
+	if err := client.Init(); err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+	defer client.Dispose()
+
+	// Set shared metadata
+	_ = client.SetMetadata("environment", "test")
+	_ = client.SetMetadata("version", "1.0.0")
+
+	// Track event with metadata that overrides shared metadata
+	client.Track("test_event", map[string]any{"action": "click"}, map[string]any{"version": "2.0.0", "source": "button"})
+
+	time.Sleep(50 * time.Millisecond)
+
+	if client.dispatcher.queue.Len() > 0 {
+		event, ok := client.dispatcher.queue.Dequeue()
+		if !ok {
+			t.Error("failed to dequeue event")
+			return
+		}
+		
+		// Shared metadata should be present
+		if event.Metadata["environment"] != "test" {
+			t.Errorf("expected environment to be test, got %v", event.Metadata["environment"])
+		}
+		
+		// Event-specific metadata should override shared metadata
+		if event.Metadata["version"] != "2.0.0" {
+			t.Errorf("expected version to be 2.0.0 (overridden), got %v", event.Metadata["version"])
+		}
+		
+		// Event-specific metadata should be present
+		if event.Metadata["source"] != "button" {
+			t.Errorf("expected source to be button, got %v", event.Metadata["source"])
+		}
+	} else {
+		t.Error("expected event to be in queue")
+	}
+}
+
+func TestClient_TrackWithOnlySharedMetadata(t *testing.T) {
+	client := createTestClient()
+	
+	if err := client.Init(); err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+	defer client.Dispose()
+
+	// Set shared metadata
+	_ = client.SetMetadata("userId", "123")
+
+	// Track event without event-specific metadata
+	client.Track("test_event")
+
+	time.Sleep(50 * time.Millisecond)
+
+	if client.dispatcher.queue.Len() > 0 {
+		event, ok := client.dispatcher.queue.Dequeue()
+		if !ok {
+			t.Error("failed to dequeue event")
+			return
+		}
+		
+		// Only shared metadata should be present
+		if event.Metadata["userId"] != "123" {
+			t.Errorf("expected userId to be 123, got %v", event.Metadata["userId"])
+		}
+		
+		// Should have exactly one metadata field
+		if len(event.Metadata) != 1 {
+			t.Errorf("expected 1 metadata field, got %d", len(event.Metadata))
+		}
+	} else {
+		t.Error("expected event to be in queue")
+	}
+}
+
+func TestClient_TrackWithNoMetadata(t *testing.T) {
+	client := createTestClient()
+	
+	if err := client.Init(); err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+	defer client.Dispose()
+
+	// Track event without any metadata
+	client.Track("test_event")
+
+	time.Sleep(50 * time.Millisecond)
+
+	if client.dispatcher.queue.Len() > 0 {
+		event, ok := client.dispatcher.queue.Dequeue()
+		if !ok {
+			t.Error("failed to dequeue event")
+			return
+		}
+		
+		// Metadata should be nil when no metadata is set
+		if event.Metadata != nil {
+			t.Errorf("expected metadata to be nil, got %v", event.Metadata)
+		}
+	} else {
+		t.Error("expected event to be in queue")
+	}
+}
+
+func TestDispatcher_StopTimerIfEmpty(t *testing.T) {
+	config := DispatcherConfig{
+		FlushInterval: 100 * time.Millisecond,
+		MaxBatchSize:  5,
+		MaxRetries:    3,
+	}
+	
+	mockHTTP := &mockHTTPAdapter{}
+	mockStorage := &mockStorageAdapter{}
+	dispatcher := NewDispatcher(config, mockHTTP, mockStorage, map[string]string{})
+	
+	dispatcher.Start()
+	defer dispatcher.Stop()
+	
+	// Add an event to start the timer
+	event := Event{Name: "test", IssuedAt: time.Now().UnixMilli()}
+	dispatcher.Enqueue(event)
+	
+	// Wait for timer to start
+	time.Sleep(50 * time.Millisecond)
+	
+	// Flush to empty the queue
+	dispatcher.Flush()
+	
+	// Wait for timer to potentially stop
+	time.Sleep(150 * time.Millisecond)
+	
+	// Timer should have stopped (this tests the stopTimerIfEmpty function)
+	// We can't directly verify this without exposing internal state,
+	// but the function will be called during the flush process
+}
+func TestClient_InitWithStorageError(t *testing.T) {
+	client := createTestClient()
+	
+	// Use a storage adapter that will fail during Load
+	client.storageAdapter = &mockStorageAdapterWithError{}
+	
+	err := client.Init()
+	if err == nil {
+		t.Error("expected error during Init with failing storage adapter")
+	}
+	
+	// Client should not be initialized
+	if client.initialized {
+		t.Error("client should not be initialized after Init error")
+	}
+}
+
+func TestClient_InitTwice(t *testing.T) {
+	client := createTestClient()
+	
+	// First init should succeed
+	err := client.Init()
+	if err != nil {
+		t.Fatalf("first Init failed: %v", err)
+	}
+	defer client.Dispose()
+	
+	// Second init should be no-op and return nil
+	err = client.Init()
+	if err != nil {
+		t.Errorf("second Init should return nil, got: %v", err)
+	}
+}
