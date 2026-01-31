@@ -2,7 +2,7 @@
 
 <img width="64" height="64" alt="Ripple Logo" src="https://raw.githubusercontent.com/Tap30/ripple/refs/heads/main/ripple-logo.png" />
 
-# Ripple | TypeScript | Browser
+# Ripple | Go
 
 </div>
 
