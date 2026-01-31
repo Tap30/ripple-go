@@ -749,3 +749,46 @@ func (m *mockStorageAdapterWithError) Load() ([]Event, error) {
 func (m *mockStorageAdapterWithError) Clear() error {
 	return nil
 }
+func TestClient_SharedMetadataMerging(t *testing.T) {
+	client := createTestClient()
+
+	if err := client.Init(); err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+	defer client.Dispose()
+
+	// Set shared metadata
+	_ = client.SetMetadata("userId", "123")
+	_ = client.SetMetadata("appVersion", "1.0.0")
+
+	// Track event with additional metadata
+	client.Track("test_event", map[string]any{"action": "click"}, map[string]any{"schemaVersion": "2.0.0"})
+
+	// Wait a moment for the event to be queued
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify metadata merging by checking the event in the queue
+	if client.dispatcher.queue.Len() > 0 {
+		// Get the event from queue
+		event, ok := client.dispatcher.queue.Dequeue()
+		if !ok {
+			t.Error("failed to dequeue event")
+			return
+		}
+		
+		// Check that shared metadata is present
+		if event.Metadata["userId"] != "123" {
+			t.Errorf("expected userId to be 123, got %v", event.Metadata["userId"])
+		}
+		if event.Metadata["appVersion"] != "1.0.0" {
+			t.Errorf("expected appVersion to be 1.0.0, got %v", event.Metadata["appVersion"])
+		}
+		
+		// Check that event-specific metadata is present
+		if event.Metadata["schemaVersion"] != "2.0.0" {
+			t.Errorf("expected schemaVersion to be 2.0.0, got %v", event.Metadata["schemaVersion"])
+		}
+	} else {
+		t.Error("expected event to be in queue")
+	}
+}
