@@ -231,3 +231,60 @@ and `go vet` for static analysis. Follow standard Go conventions:
 By contributing your code to the `Tap30/*` GitHub repositories, you agree to
 license your contribution under the
 [MIT license](https://github.com/Tap30/ripple-go/blob/main/LICENSE).
+## Release Process
+
+### Versioning
+
+This project uses a `.versionrc` file to manage versions. The version format follows [Semantic Versioning](https://semver.org/).
+
+#### Making a Release
+
+1. **Create a new branch** for the version update:
+   ```bash
+   git checkout -b release/1.2.3
+   ```
+
+2. **Update the version** in `.versionrc`:
+   ```bash
+   echo "1.2.3" > .versionrc
+   ```
+
+3. **Sync the version** to Go code:
+   ```bash
+   make version-sync
+   ```
+
+4. **Verify version consistency**:
+   ```bash
+   make version-check
+   ```
+
+5. **Commit and push** the changes:
+   ```bash
+   git add .versionrc version.go
+   git commit -m "chore: bump version to 1.2.3"
+   git push origin release/1.2.3
+   ```
+
+6. **Create a Pull Request** to main branch
+
+7. **Merge the PR**: GitHub Actions will automatically create a release tag and GitHub release when the PR is merged to main (only if `.versionrc` contains a new version).
+
+#### Version Guidelines
+
+- **Patch** (x.x.X): Bug fixes, documentation updates
+- **Minor** (x.X.x): New features, backward compatible changes  
+- **Major** (X.x.x): Breaking changes, API changes
+
+#### Development Commands
+
+```bash
+# Sync version from .versionrc to version.go
+make version-sync
+
+# Check if versions are consistent
+make version-check
+
+# Test release configuration
+make release-test
+```

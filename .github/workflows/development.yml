@@ -13,8 +13,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  test:
-    name: "Unit Tests"
+  check:
+    name: "All Checks"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -30,48 +30,5 @@ jobs:
       - name: "📦 Download dependencies"
         run: go mod download
 
-      - name: "🔍 Run tests with coverage"
-        run: make test-cover
-
-  lint:
-    name: "Lint Code"
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: "☁️ Checkout repository"
-        uses: actions/checkout@v4
-
-      - name: "🔧 Setup Go"
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
-
-      - name: "📦 Download dependencies"
-        run: go mod download
-
-      - name: "🔍 Check code formatting"
-        run: make fmt-check
-
-      - name: "🔍 Run linter"
-        run: make lint
-
-  build:
-    name: "Build Check"
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: "☁️ Checkout repository"
-        uses: actions/checkout@v4
-
-      - name: "🔧 Setup Go"
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache: true
-
-      - name: "📦 Download dependencies"
-        run: go mod download
-
-      - name: "🔨 Build all packages"
-        run: make build
+      - name: "🔍 Run all checks"
+        run: make check
