@@ -188,17 +188,17 @@ func (c *Client) Track(name string, args ...any) error {
 	// Merge shared metadata with event-specific metadata
 	sharedMetadata := c.metadataManager.GetAll()
 	finalMetadata := make(map[string]any)
-	
+
 	// Start with shared metadata
 	for k, v := range sharedMetadata {
 		finalMetadata[k] = v
 	}
-	
+
 	// Override with event-specific metadata
 	for k, v := range metadata {
 		finalMetadata[k] = v
 	}
-	
+
 	// Use nil if no metadata at all
 	var eventMetadata map[string]any
 	if len(finalMetadata) > 0 {

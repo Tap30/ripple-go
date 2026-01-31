@@ -775,7 +775,7 @@ func TestClient_SharedMetadataMerging(t *testing.T) {
 			t.Error("failed to dequeue event")
 			return
 		}
-		
+
 		// Check that shared metadata is present
 		if event.Metadata["userId"] != "123" {
 			t.Errorf("expected userId to be 123, got %v", event.Metadata["userId"])
@@ -783,7 +783,7 @@ func TestClient_SharedMetadataMerging(t *testing.T) {
 		if event.Metadata["appVersion"] != "1.0.0" {
 			t.Errorf("expected appVersion to be 1.0.0, got %v", event.Metadata["appVersion"])
 		}
-		
+
 		// Check that event-specific metadata is present
 		if event.Metadata["schemaVersion"] != "2.0.0" {
 			t.Errorf("expected schemaVersion to be 2.0.0, got %v", event.Metadata["schemaVersion"])
