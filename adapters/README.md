@@ -32,11 +32,18 @@ type StorageAdapter interface {
 }
 ```
 
-**Default Implementation:** `DefaultStorageAdapter`
+**Default Implementation:** `FileStorageAdapter`
 
 - Stores events as JSON in a file
 - Default file: `ripple_events.json`
 - Suitable for server environments
+
+**NoOp Implementation:** `NoOpStorageAdapter`
+
+- Performs no storage operations
+- Save and Clear do nothing
+- Load returns empty array
+- Useful when persistence is not required
 
 ## Custom Implementations
 

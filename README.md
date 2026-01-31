@@ -52,6 +52,14 @@ func main() {
         HTTPAdapter:    adapters.NewNetHTTPAdapter(),
         StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
     })
+
+    // Or use NoOpStorageAdapter if persistence is not needed
+    client, err := ripple.NewClient(ripple.ClientConfig{
+        APIKey:         "your-api-key",
+        Endpoint:       "https://api.example.com/events",
+        HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+        StorageAdapter: adapters.NewNoOpStorageAdapter(),
+    })
     if err != nil {
         panic(err)
     }

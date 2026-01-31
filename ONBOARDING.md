@@ -333,6 +333,13 @@ Default implementation (`FileStorageAdapter`):
 - Unlimited capacity
 - Suitable for server environments
 
+NoOp implementation (`NoOpStorageAdapter`):
+
+- No persistence operations
+- Save and Clear do nothing
+- Load returns empty array
+- Useful when persistence is not required
+
 ---
 
 ## Types
