@@ -124,7 +124,7 @@ func readInput(prompt string) string {
 
 func trackSimpleEvent() {
 	fmt.Println("\n📊 Track Simple Event")
-	if err := client.Track("button_click", nil, nil); err != nil {
+	if err := client.Track("button_click"); err != nil {
 		fmt.Printf("❌ Error tracking event: %v\n\n", err)
 		return
 	}
@@ -138,7 +138,7 @@ func trackEventWithPayload() {
 		"target":    "button",
 		"timestamp": time.Now().Unix(),
 	}
-	client.Track("user_action", payload, nil)
+	client.Track("user_action", payload)
 	fmt.Println("✅ Tracked: user_action with payload\n")
 }
 
@@ -179,7 +179,7 @@ func setSharedMetadata() {
 
 func trackWithSharedMetadata() {
 	fmt.Println("\n🏷️  Track with Shared Metadata")
-	client.Track("metadata_test", nil, nil)
+	client.Track("metadata_test")
 	fmt.Println("✅ Tracked event with shared metadata\n")
 }
 
@@ -187,7 +187,7 @@ func trackMultipleEvents() {
 	fmt.Println("\n📦 Track Multiple Events (Batch Test)")
 	for i := 0; i < 10; i++ {
 		payload := map[string]any{"index": i}
-		client.Track("batch_event", payload, nil)
+		client.Track("batch_event", payload)
 	}
 	fmt.Println("✅ Tracked 10 events (should auto-flush at batch size 5)\n")
 }
@@ -217,7 +217,7 @@ func testInvalidEndpoint() {
 		return
 	}
 
-	errorClient.Track("error_test", map[string]any{"shouldFail": true}, nil)
+	errorClient.Track("error_test", map[string]any{"shouldFail": true})
 	fmt.Println("✅ Tracked event to invalid endpoint (check console for retries)\n")
 }
 

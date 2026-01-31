@@ -88,11 +88,14 @@ func TestContractCompliance(t *testing.T) {
 			t.Error("Init should take no parameters and return error")
 		}
 
-		// Test Track(string, any, map[string]any) error
+		// Test Track(string, ...any) error
 		trackMethod := clientValue.MethodByName("Track")
 		trackType := trackMethod.Type()
-		if trackType.NumIn() != 3 || trackType.NumOut() != 1 {
-			t.Error("Track should take 3 parameters and return error")
+		if trackType.NumIn() != 2 || trackType.NumOut() != 1 {
+			t.Error("Track should take 2 parameters (name string, args ...any) and return error")
+		}
+		if !trackType.IsVariadic() {
+			t.Error("Track should be variadic")
 		}
 
 		// Test SetMetadata(string, any) error

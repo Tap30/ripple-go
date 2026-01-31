@@ -182,7 +182,7 @@ Thread safety is enforced through internal locking and MetadataManager.
 Key methods:
 
 * `Init()` - Initialize client and restore persisted events (must be called first)
-* `Track(name, payload, metadata)` - Track event (returns error if not initialized)
+* `Track(name, ...args)` - Track event with optional payload and metadata (returns error if not initialized)
 * `SetMetadata(key, value)` - Set shared metadata attached to all events (returns error for validation)
 * `GetMetadata()` - Get all shared metadata as map
 * `GetSessionId()` - Returns nil for server environments
@@ -425,14 +425,16 @@ if err := client.SetMetadata("appVersion", "1.0.0"); err != nil {
 // Track events
 if err := client.Track("page_view", map[string]interface{}{
     "page": "/home",
-}, nil); err != nil {
+}); err != nil {
     panic(err)
 }
 
 // Track with event-specific metadata
 if err := client.Track("user_action", map[string]interface{}{
     "button": "submit",
-}, map[string]any{"schemaVersion": "2.0.0"})
+}, map[string]any{"schemaVersion": "2.0.0"}); err != nil {
+    panic(err)
+}
 
 // Manual flush
 client.Flush()

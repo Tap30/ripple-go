@@ -72,7 +72,7 @@ func main() {
     // Track events
     if err := client.Track("page_view", map[string]interface{}{
         "page": "/home",
-    }, nil); err != nil {
+    }); err != nil {
         panic(err)
     }
 
@@ -113,9 +113,14 @@ type ClientConfig struct {
 
 Initializes the client and starts the dispatcher. Must be called before tracking events.
 
-#### `Track(name string, payload map[string]interface{}, metadata map[string]interface{}) error`
+#### `Track(name string, args ...any) error`
 
-Tracks an event with optional payload and metadata. Returns error if event name is empty, exceeds 255 characters, or if client is not initialized.
+Tracks an event with optional payload and metadata. Supports three usage patterns:
+- `Track(name)` - Simple event tracking
+- `Track(name, payload)` - Event with payload
+- `Track(name, payload, metadata)` - Event with payload and metadata
+
+Returns error if event name is empty, exceeds 255 characters, or if client is not initialized.
 
 #### `SetMetadata(key string, value interface{}) error`
 
