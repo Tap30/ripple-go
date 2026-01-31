@@ -8,14 +8,29 @@ import (
 
 // Re-export adapter types for convenience
 type (
-	Event          = adapters.Event
-	EventMetadata  = adapters.EventMetadata
-	Platform       = adapters.Platform
-	HTTPAdapter    = adapters.HTTPAdapter
-	HTTPResponse   = adapters.HTTPResponse
+	// Event represents a trackable analytics event.
+	Event = adapters.Event
+
+	// EventMetadata contains optional metadata associated with an event.
+	EventMetadata = adapters.EventMetadata
+
+	// Platform describes the runtime environment (e.g., server, client).
+	Platform = adapters.Platform
+
+	// HTTPAdapter defines the interface used by the client to perform HTTP requests.
+	HTTPAdapter = adapters.HTTPAdapter
+
+	// HTTPResponse represents a response returned by an HTTPAdapter.
+	HTTPResponse = adapters.HTTPResponse
+
+	// StorageAdapter defines the interface used for event persistence and retries.
 	StorageAdapter = adapters.StorageAdapter
-	LoggerAdapter  = adapters.LoggerAdapter
-	LogLevel       = adapters.LogLevel
+
+	// LoggerAdapter defines the interface used for internal SDK logging.
+	LoggerAdapter = adapters.LoggerAdapter
+
+	// LogLevel represents the severity level for logging.
+	LogLevel = adapters.LogLevel
 )
 
 type HTTPError struct {
@@ -27,22 +42,71 @@ func (e *HTTPError) Error() string {
 }
 
 type ClientConfig struct {
-	APIKey         string
-	Endpoint       string
-	APIKeyHeader   *string
-	FlushInterval  time.Duration
-	MaxBatchSize   int
-	MaxRetries     int
-	HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
-	StorageAdapter StorageAdapter // Required: Custom storage adapter
-	LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter (default: PrintLoggerAdapter with WARN level)
+	// APIKey is the authentication key used to authorize requests.
+	//
+	// Required.
+	APIKey string
+
+	// Endpoint is the base HTTPS URL of the Ripple API.
+	//
+	// Example: https://api.ripple.io
+	//
+	// Required.
+	Endpoint string
+
+	// APIKeyHeader is the HTTP header name used to send the API key.
+	//
+	// Default: "X-API-Key"
+	APIKeyHeader *string
+
+	// FlushInterval controls how often events are automatically flushed
+	// to the server.
+	//
+	// Default: 5 seconds.
+	FlushInterval time.Duration
+
+	// MaxBatchSize is the maximum number of events sent in a single request.
+	//
+	// Default: 10.
+	MaxBatchSize int
+
+	// MaxRetries is the maximum number of retry attempts for failed requests.
+	//
+	// Default: 3.
+	MaxRetries int
+
+	// HTTPAdapter is the transport layer used to perform HTTP requests.
+	//
+	// Required.
+	HTTPAdapter HTTPAdapter
+
+	// StorageAdapter is used to persist events for retry and durability.
+	//
+	// Required.
+	StorageAdapter StorageAdapter
+
+	// LoggerAdapter is used for internal SDK logging.
+	//
+	// Default: PrintLoggerAdapter with WARN level.
+	LoggerAdapter LoggerAdapter
 }
 
 type DispatcherConfig struct {
-	APIKey        string
-	APIKeyHeader  string
-	Endpoint      string
+	// APIKey is the authentication key used to authorize requests.
+	APIKey string
+
+	// APIKeyHeader is the HTTP header name used to send the API key.
+	APIKeyHeader string
+
+	// Endpoint is the base HTTPS URL of the Ripple API.
+	Endpoint string
+
+	// FlushInterval controls how often queued events are flushed.
 	FlushInterval time.Duration
-	MaxBatchSize  int
-	MaxRetries    int
+
+	// MaxBatchSize is the maximum number of events per batch.
+	MaxBatchSize int
+
+	// MaxRetries is the maximum number of retry attempts for failed requests.
+	MaxRetries int
 }

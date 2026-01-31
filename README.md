@@ -1,12 +1,15 @@
 <div align="center">
 
+<img width="64" height="64" alt="Ripple Logo" src="https://raw.githubusercontent.com/Tap30/ripple/refs/heads/main/ripple-logo.png" />
+
 # Ripple | Go
 
 </div>
 
 <div align="center">
 
-A fast, resilient, and scalable event-tracking SDK built in Go.
+A high-performance, scalable, and fault-tolerant event tracking TypeScript SDK
+for browsers.
 
 </div>
 
@@ -16,8 +19,12 @@ A fast, resilient, and scalable event-tracking SDK built in Go.
 
 - **Zero Dependencies** – Built entirely with Go standard library
 - **Thread-Safe** – Concurrent event tracking with mutex protection
-- **Automatic Batching** – Efficient event grouping for network optimization
-- **Retry Logic** – Exponential backoff with jitter for failed requests
+- **Automatic Batching** – Efficient event grouping with dynamic rebatching for optimal network usage
+- **Smart Retry Logic** – Intelligent retry behavior based on HTTP status codes:
+  - **2xx (Success)**: Clear storage, no retry
+  - **4xx (Client Error)**: Drop events, no retry (prevents infinite loops)
+  - **5xx (Server Error)**: Retry with exponential backoff, re-queue on max retries
+  - **Network Errors**: Retry with exponential backoff, re-queue on max retries
 - **Event Persistence** – Disk-backed storage for reliability
 - **Graceful Shutdown** – Ensures all events are flushed and persisted
 - **Pluggable Adapters** – Custom HTTP and storage implementations
@@ -30,12 +37,15 @@ go get github.com/Tap30/ripple-go
 
 ## Quick Start
 
+### Basic Usage
+
 ```go
 package main
 
 import (
     "time"
     ripple "github.com/Tap30/ripple-go"
+    "github.com/Tap30/ripple-go/adapters"
 )
 
 func main() {
@@ -44,6 +54,14 @@ func main() {
         Endpoint:       "https://api.example.com/events",
         HTTPAdapter:    adapters.NewNetHTTPAdapter(),
         StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+    })
+
+    // Or use NoOpStorageAdapter if persistence is not needed
+    client, err := ripple.NewClient(ripple.ClientConfig{
+        APIKey:         "your-api-key",
+        Endpoint:       "https://api.example.com/events",
+        HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+        StorageAdapter: adapters.NewNoOpStorageAdapter(),
     })
     if err != nil {
         panic(err)
@@ -54,21 +72,29 @@ func main() {
     }
     defer client.Dispose()
 
-    // Set global context
-    client.SetContext("userId", "123")
-    client.SetContext("appVersion", "1.0.0")
+    // Set global metadata
+    if err := client.SetMetadata("userId", "123"); err != nil {
+        panic(err)
+    }
+    if err := client.SetMetadata("appVersion", "1.0.0"); err != nil {
+        panic(err)
+    }
 
     // Track events
-    client.Track("page_view", map[string]interface{}{
+    if err := client.Track("page_view", map[string]interface{}{
         "page": "/home",
-    }, nil)
+    }); err != nil {
+        panic(err)
+    }
 
     // Track with metadata
-    client.Track("user_action", map[string]interface{}{
+    if err := client.Track("user_action", map[string]interface{}{
         "button": "submit",
-    }, &ripple.EventMetadata{
-        SchemaVersion: "1.0.0",
-    })
+    }, map[string]interface{}{
+        "schemaVersion": "1.0.0",
+    }); err != nil {
+        panic(err)
+    }
 
     // Manually flush
     client.Flush()
@@ -95,21 +121,38 @@ type ClientConfig struct {
 ### Client Methods
 
 #### `Init() error`
+
 Initializes the client and starts the dispatcher. Must be called before tracking events.
 
-#### `Track(name string, payload map[string]interface{}, metadata *EventMetadata)`
-Tracks an event with optional payload and metadata.
+#### `Track(name string, args ...any) error`
 
-#### `SetContext(key string, value interface{})`
-Sets a global context value that will be attached to all events.
+Tracks an event with optional payload and metadata. Supports three usage patterns:
 
-#### `GetContext() map[string]interface{}`
-Returns a copy of the current global context.
+
+- `Track(name)` - Simple event tracking
+- `Track(name, payload)` - Event with payload
+- `Track(name, payload, metadata)` - Event with payload and metadata
+
+Returns error if event name is empty, exceeds 255 characters, or if client is not initialized.
+
+#### `SetMetadata(key string, value interface{}) error`
+
+Sets a metadata value that will be attached to all subsequent events. Returns error if key is empty or exceeds 255 characters.
+
+#### `GetMetadata() map[string]interface{}`
+
+Returns a copy of all stored metadata. Returns empty map if no metadata is set.
+
+#### `GetSessionId() *string`
+
+Returns the current session ID or `nil` if not set. Always returns `nil` for server environments.
 
 #### `Flush()`
+
 Manually triggers a flush of all queued events.
 
 #### `Dispose() error`
+
 Gracefully shuts down the client, flushing and persisting all events.
 
 ## Advanced Usage
@@ -176,7 +219,7 @@ func (r *RedisStorage) Clear() error {
 }
 
 // Use custom adapter
-client, err := ripple.NewClient(ripple.ClientConfig{
+client, err := ripple.NewClient[map[string]any, map[string]any](ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    adapters.NewNetHTTPAdapter(),

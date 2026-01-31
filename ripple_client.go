@@ -8,6 +8,15 @@ import (
 	"github.com/Tap30/ripple-go/adapters"
 )
 
+var (
+	serverPlatform = &Platform{Type: "server"}
+	eventPool      = sync.Pool{
+		New: func() any {
+			return &Event{}
+		},
+	}
+)
+
 type Client struct {
 	config          ClientConfig
 	metadataManager *MetadataManager
@@ -19,23 +28,27 @@ type Client struct {
 	mu              sync.RWMutex
 }
 
+// NewClient creates a new type-safe Ripple client
 func NewClient(config ClientConfig) (*Client, error) {
 	// Validate required fields
 	if config.APIKey == "" {
-		return nil, errors.New("apiKey must be provided in config")
+		return nil, errors.New("APIKey is required")
 	}
 	if config.Endpoint == "" {
-		return nil, errors.New("endpoint must be provided in config")
+		return nil, errors.New("Endpoint is required")
 	}
-	if config.HTTPAdapter == nil || config.StorageAdapter == nil {
-		return nil, errors.New("both HTTPAdapter and StorageAdapter must be provided in config")
+	if config.HTTPAdapter == nil {
+		return nil, errors.New("HTTPAdapter is required")
+	}
+	if config.StorageAdapter == nil {
+		return nil, errors.New("StorageAdapter is required")
 	}
 
 	// Set defaults
 	if config.FlushInterval == 0 {
 		config.FlushInterval = 5 * time.Second
 	}
-	if !(config.MaxBatchSize > 0) {
+	if config.MaxBatchSize <= 0 {
 		config.MaxBatchSize = 10
 	}
 	if config.MaxRetries == 0 {
@@ -109,19 +122,51 @@ func (c *Client) Init() error {
 	return nil
 }
 
-func (c *Client) SetMetadata(key string, value any) {
+func (c *Client) SetMetadata(key string, value any) error {
+	keyLen := len(key)
+	if keyLen == 0 {
+		return errors.New("metadata key cannot be empty")
+	}
+	if keyLen > 255 {
+		return errors.New("metadata key cannot exceed 255 characters")
+	}
+
 	c.metadataManager.Set(key, value)
+	return nil
 }
 
-func (c *Client) GetMetadata(key string) any {
-	return c.metadataManager.Get(key)
-}
-
-func (c *Client) GetAllMetadata() map[string]any {
+func (c *Client) GetMetadata() map[string]any {
 	return c.metadataManager.GetAll()
 }
 
-func (c *Client) Track(name string, payload map[string]any, metadata *EventMetadata) error {
+func (c *Client) GetSessionId() *string {
+	// Server environments don't use session IDs
+	return nil
+}
+
+func (c *Client) Track(name string, args ...any) error {
+	// Validate event name (optimized single check)
+	nameLen := len(name)
+	if nameLen == 0 {
+		return errors.New("event name cannot be empty")
+	}
+	if nameLen > 255 {
+		return errors.New("event name cannot exceed 255 characters")
+	}
+
+	// Parse optional arguments
+	var payload any
+	var metadata map[string]any
+
+	if len(args) > 0 {
+		payload = args[0]
+	}
+	if len(args) > 1 {
+		if meta, ok := args[1].(map[string]any); ok {
+			metadata = meta
+		}
+	}
+
 	c.mu.RLock()
 	initialized := c.initialized
 	c.mu.RUnlock()
@@ -130,37 +175,49 @@ func (c *Client) Track(name string, payload map[string]any, metadata *EventMetad
 		return errors.New("client not initialized. Call Init() before tracking events")
 	}
 
-	// Merge shared metadata with event-specific metadata
-	var finalMetadata *EventMetadata
-	sharedMetadata := c.metadataManager.GetAll()
-
-	if sharedMetadata != nil || metadata != nil {
-		finalMetadata = &EventMetadata{}
-
-		// Start with shared metadata
-		if sharedMetadata != nil {
-			// Convert shared metadata to EventMetadata fields as needed
-			// For now, we'll keep it simple and use the existing metadata structure
-		}
-
-		// Override with event-specific metadata
-		if metadata != nil {
-			*finalMetadata = *metadata
+	// Convert payload to map[string]any if provided
+	var eventPayload map[string]any
+	if payload != nil {
+		if p, ok := payload.(map[string]any); ok {
+			eventPayload = p
+		} else {
+			return errors.New("payload must be of type map[string]any or nil")
 		}
 	}
 
-	event := Event{
+	// Merge shared metadata with event-specific metadata
+	sharedMetadata := c.metadataManager.GetAll()
+	finalMetadata := make(map[string]any)
+
+	// Start with shared metadata
+	for k, v := range sharedMetadata {
+		finalMetadata[k] = v
+	}
+
+	// Override with event-specific metadata
+	for k, v := range metadata {
+		finalMetadata[k] = v
+	}
+
+	// Use nil if no metadata at all
+	var eventMetadata map[string]any
+	if len(finalMetadata) > 0 {
+		eventMetadata = finalMetadata
+	}
+	now := time.Now().UnixMilli()
+	event := eventPool.Get().(*Event)
+	*event = Event{
 		Name:      name,
-		Payload:   payload,
-		Metadata:  finalMetadata,
-		IssuedAt:  time.Now().UnixMilli(),
-		Context:   sharedMetadata, // Use shared metadata as context
-		SessionID: nil,            // Server platform doesn't use session ID
-		Platform:  &Platform{Type: "server"},
+		Payload:   eventPayload,
+		Metadata:  eventMetadata,
+		IssuedAt:  now,
+		SessionID: nil, // Server environments don't use session IDs
+		Platform:  serverPlatform,
 	}
 
 	c.loggerAdapter.Debug("Tracking event: %s", name)
-	c.dispatcher.Enqueue(event)
+	c.dispatcher.Enqueue(*event)
+	eventPool.Put(event)
 	return nil
 }
 

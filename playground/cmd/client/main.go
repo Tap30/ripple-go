@@ -17,7 +17,7 @@ func stringPtr(s string) *string {
 
 var client *ripple.Client
 var scanner *bufio.Scanner
-var contextCounter int
+var metadataCounter int
 var eventCounter int
 
 func main() {
@@ -67,7 +67,7 @@ func main() {
 		case "6":
 			trackWithSharedMetadata()
 		case "7":
-			viewContext()
+			viewMetadata()
 		case "8":
 			trackMultipleEvents()
 		case "9":
@@ -100,7 +100,7 @@ func showMenu() {
 	fmt.Println("🏷️  Metadata Management")
 	fmt.Println("5. Set Shared Metadata")
 	fmt.Println("6. Track with Shared Metadata")
-	fmt.Println("7. View Current Context/Metadata")
+	fmt.Println("7. View Current Metadata")
 	fmt.Println()
 	fmt.Println("📦 Batch and Flush")
 	fmt.Println("8. Track Multiple Events (Batch Test)")
@@ -124,7 +124,10 @@ func readInput(prompt string) string {
 
 func trackSimpleEvent() {
 	fmt.Println("\n📊 Track Simple Event")
-	client.Track("button_click", nil, nil)
+	if err := client.Track("button_click"); err != nil {
+		fmt.Printf("❌ Error tracking event: %v\n\n", err)
+		return
+	}
 	fmt.Println("✅ Tracked: button_click\n")
 }
 
@@ -135,7 +138,7 @@ func trackEventWithPayload() {
 		"target":    "button",
 		"timestamp": time.Now().Unix(),
 	}
-	client.Track("user_action", payload, nil)
+	client.Track("user_action", payload)
 	fmt.Println("✅ Tracked: user_action with payload\n")
 }
 
@@ -145,7 +148,7 @@ func trackEventWithMetadata() {
 		"formId": "contact-form",
 		"fields": 5,
 	}
-	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("1.0.0")}
+	metadata := map[string]any{"schemaVersion": "1.0.0"}
 	client.Track("form_submit", payload, metadata)
 	fmt.Println("✅ Tracked: form_submit with metadata\n")
 }
@@ -156,24 +159,27 @@ func trackEventWithCustomMetadata() {
 		"orderId": "order-123",
 		"amount":  99.99,
 	}
-	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("2.1.0")}
+	metadata := map[string]any{"schemaVersion": "2.1.0"}
 	client.Track("purchase_completed", payload, metadata)
 	fmt.Println("✅ Tracked: purchase_completed with rich metadata\n")
 }
 
 func setSharedMetadata() {
 	fmt.Println("\n🏷️  Set Shared Metadata")
-	contextCounter++
-	key := fmt.Sprintf("key_%d", contextCounter)
-	value := fmt.Sprintf("value_%d", contextCounter)
+	metadataCounter++
+	key := fmt.Sprintf("key_%d", metadataCounter)
+	value := fmt.Sprintf("value_%d", metadataCounter)
 
-	client.SetMetadata(key, value)
+	if err := client.SetMetadata(key, value); err != nil {
+		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
+		return
+	}
 	fmt.Printf("✅ Shared metadata set: %s = %s\n\n", key, value)
 }
 
 func trackWithSharedMetadata() {
 	fmt.Println("\n🏷️  Track with Shared Metadata")
-	client.Track("metadata_test", nil, nil)
+	client.Track("metadata_test")
 	fmt.Println("✅ Tracked event with shared metadata\n")
 }
 
@@ -181,7 +187,7 @@ func trackMultipleEvents() {
 	fmt.Println("\n📦 Track Multiple Events (Batch Test)")
 	for i := 0; i < 10; i++ {
 		payload := map[string]any{"index": i}
-		client.Track("batch_event", payload, nil)
+		client.Track("batch_event", payload)
 	}
 	fmt.Println("✅ Tracked 10 events (should auto-flush at batch size 5)\n")
 }
@@ -211,7 +217,7 @@ func testInvalidEndpoint() {
 		return
 	}
 
-	errorClient.Track("error_test", map[string]any{"shouldFail": true}, nil)
+	errorClient.Track("error_test", map[string]any{"shouldFail": true})
 	fmt.Println("✅ Tracked event to invalid endpoint (check console for retries)\n")
 }
 
@@ -221,19 +227,22 @@ func disposeClient() {
 	fmt.Println("✅ Client disposed\n")
 }
 
-func setContext() {
+func setMetadata() {
 	fmt.Println("\n📝 Set Metadata")
-	contextCounter++
-	key := fmt.Sprintf("key_%d", contextCounter)
-	value := fmt.Sprintf("value_%d", contextCounter)
+	metadataCounter++
+	key := fmt.Sprintf("key_%d", metadataCounter)
+	value := fmt.Sprintf("value_%d", metadataCounter)
 
-	client.SetMetadata(key, value)
+	if err := client.SetMetadata(key, value); err != nil {
+		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
+		return
+	}
 	fmt.Printf("✅ Metadata set: %s = %s\n\n", key, value)
 }
 
-func viewContext() {
+func viewMetadata() {
 	fmt.Println("\n👀 Current Metadata")
-	metadata := client.GetAllMetadata()
+	metadata := client.GetMetadata()
 	if len(metadata) == 0 {
 		fmt.Println("(empty)")
 	} else {
@@ -259,7 +268,7 @@ func trackEvent() {
 		},
 	}
 
-	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("1.0.0")}
+	metadata := map[string]any{"schemaVersion": "1.0.0"}
 
 	client.Track(name, payload, metadata)
 	fmt.Printf("✅ Event '%s' tracked with sample payload\n\n", name)
@@ -281,7 +290,7 @@ func trackEventWithError() {
 		},
 	}
 
-	metadata := &ripple.EventMetadata{SchemaVersion: stringPtr("1.0.0")}
+	metadata := map[string]any{"schemaVersion": "1.0.0"}
 
 	client.Track(name, payload, metadata)
 	fmt.Printf("✅ Error event '%s' tracked - will trigger retry logic\n\n", name)

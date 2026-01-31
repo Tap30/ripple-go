@@ -2,26 +2,52 @@
 
 ## Recent Changes
 
+### Dynamic Rebatching in Flush (Latest)
+- **Updated Flush logic** - Now processes all queued events in optimal batches
+- **Improved efficiency** - Clears entire queue at once, then processes in batches
+- **Better performance** - Reduces queue operations and improves throughput
+- **Matches TypeScript SDK** - Consistent behavior across all Ripple SDKs
+
+### Smart Retry Logic Update
+- **Updated retry behavior** - Now follows intelligent status code-based retry logic
+- **4xx Client Errors** - No retry, events are dropped (prevents infinite loops)
+- **5xx Server Errors** - Retry with exponential backoff, re-queue on max retries
+- **Network Errors** - Retry with exponential backoff, re-queue on max retries
+- **2xx Success** - Clear storage, no retry needed
+- **Enhanced logging** - Better visibility into retry decisions and event handling
+
+### Generic Type System Removal
+- **Removed all generic types** - Simplified from `Client[TEvents, TMetadata]` to simple `Client`
+- **Updated API** - Changed from `NewClient[T, M](config)` to `NewClient(config)`
+- **Performance optimizations** - Added object pooling and pre-allocated platform objects
+- **Simplified codebase** - Removed type complexity while maintaining functionality
+- **Updated all documentation** - Removed generic examples and type-safe usage sections
+
 ### Adapter Naming Refactor
+
 - Renamed `DefaultHTTPAdapter` to `NetHTTPAdapter` for better Go conventions
 - Updated constructor: `NewDefaultHTTPAdapter()` → `NewNetHTTPAdapter()`
 
 ### Timer Behavior Enhancement
+
 - Timer now only starts when first new event is tracked, not during SDK initialization
 - Timer automatically stops when queue becomes empty to save CPU cycles and reduce log noise
 - If persisted events exist, they remain in queue until a new event triggers the timer
 - Maintains same API while improving efficiency for apps with persisted events
 
 ### Graceful Shutdown Enhancement
+
 - Added `StopWithoutFlush()` and `DisposeWithoutFlush()` methods for graceful shutdown without flushing events
 - Fixed playground client exit behavior to persist events without sending to server
 
 ### Error Handling Improvement
+
 - Changed `NewClient()` to return `(*Client, error)` instead of panicking on invalid configuration
 - Libraries should never panic as it crashes the entire application and can't be handled by users
 - Configuration validation errors are now properly returnable and handleable
 
 ### Go Version Upgrade
+
 - Upgraded from Go 1.23 to Go 1.25
 - Replaced manual `wg.Add(1)` + `go func()` + `defer wg.Done()` with cleaner `wg.Go()` method
 - Reduces boilerplate code and eliminates WaitGroup management errors
@@ -36,28 +62,32 @@ This version is not a monorepo. It has no browser package, no Node.js package, a
 
 ### Core Features
 
-* **Unified Metadata System** – Single metadata field that merges shared metadata (client-level) with event-specific metadata
-* **Type-Safe Metadata Management** – MetadataManager for handling shared metadata with thread-safe operations
-* **Initialization Validation** – Track() throws error if called before Init() to prevent data loss
-* **Logger Interface** – Pluggable logging with PrintLoggerAdapter and NoOpLoggerAdapter implementations
-* **Context Management** – shared context automatically attached to all events
-* **Event Metadata** – optional schema versioning and event-specific metadata
-* **Automatic Batching** – dispatch based on batch size
-* **Scheduled Flushing** – time-based flush via goroutines
-* **Retry Logic** – exponential backoff with jitter (1000ms × 2^attempt + random jitter)
-* **Event Persistence** – disk-backed storage for unsent events
-* **Queue Management** – FIFO queue using `container/list`
-* **Race Condition Prevention** – Mutex-based atomic operations for concurrent safety
-* **Graceful Shutdown** – flushes and persists all events on dispose
-* **Adapters** – pluggable HTTP, storage, and logger implementations
+- **Unified Metadata System** – Single metadata field that merges shared metadata (client-level) with event-specific metadata
+- **Type-Safe Metadata Management** – MetadataManager for handling shared metadata with thread-safe operations
+- **Initialization Validation** – Track() returns error if called before Init() to prevent data loss
+- **Logger Interface** – Pluggable logging with PrintLoggerAdapter and NoOpLoggerAdapter implementations
+- **Metadata Management** – shared metadata automatically attached to all events
+- **Event Metadata** – optional schema versioning and event-specific metadata
+- **Automatic Batching** – dispatch based on batch size
+- **Scheduled Flushing** – time-based flush via goroutines
+- **Smart Retry Logic** – Intelligent retry behavior based on HTTP status codes:
+  - **2xx (Success)**: Clear storage, no retry
+  - **4xx (Client Error)**: Drop events, no retry (prevents infinite loops)
+  - **5xx (Server Error)**: Retry with exponential backoff, re-queue on max retries
+  - **Network Errors**: Retry with exponential backoff, re-queue on max retries
+- **Event Persistence** – disk-backed storage for unsent events
+- **Queue Management** – FIFO queue using `container/list`
+- **Race Condition Prevention** – Mutex-based atomic operations for concurrent safety
+- **Graceful Shutdown** – flushes and persists all events on dispose
+- **Adapters** – pluggable HTTP, storage, and logger implementations
 
 ### Go-Specific Features
 
-* **Safe concurrency** (mutex-protected dispatcher and context)
-* **Native HTTP client** (`net/http`)
-* **File-based persistence** using JSON
-* **Automatic boot-time recovery** from persisted events
-* **Zero external dependencies**; uses only standard library
+- **Safe concurrency** (mutex-protected dispatcher and metadata)
+- **Native HTTP client** (`net/http`)
+- **File-based persistence** using JSON
+- **Automatic boot-time recovery** from persisted events
+- **Zero external dependencies**; uses only standard library
 
 ### Configuration
 
@@ -77,11 +107,11 @@ type ClientConfig struct {
 
 ### Developer Experience
 
-* Simple, predictable API
-* Explicit `error` returns
-* Comprehensive tests for all components
-* No external dependencies
-* Practical examples included
+- Simple, predictable API
+- Explicit `error` returns
+- Comprehensive tests for all components
+- No external dependencies
+- Practical examples included
 
 ---
 
@@ -126,9 +156,11 @@ ripple-go/
     ├── go.mod
     └── Makefile              # Build commands
 ```
+
     ├── Makefile
     └── README.md
-```
+
+````
 
 ### Core Components
 
@@ -150,10 +182,10 @@ Thread safety is enforced through internal locking and MetadataManager.
 Key methods:
 
 * `Init()` - Initialize client and restore persisted events (must be called first)
-* `Track(name, payload, metadata)` - Track event (throws error if not initialized)
-* `SetMetadata(key, value)` - Set shared metadata attached to all events
-* `GetMetadata(key)` - Get shared metadata value
-* `GetAllMetadata()` - Get all shared metadata
+* `Track(name, ...args)` - Track event with optional payload and metadata (returns error if not initialized)
+* `SetMetadata(key, value)` - Set shared metadata attached to all events (returns error for validation)
+* `GetMetadata()` - Get all shared metadata as map
+* `GetSessionId()` - Returns nil for server environments
 * `Flush()` - Force flush queued events
 * `Dispose()` - Clean up resources and flush events
 * `DisposeWithoutFlush()` - Clean up without flushing (persist to storage only)
@@ -170,8 +202,7 @@ Responsibilities:
 Key methods:
 
 * `Set(key, value)` - Set metadata value
-* `Get(key)` - Get metadata value
-* `GetAll()` - Get all metadata (returns `nil` if empty)
+* `GetAll()` - Get all metadata (returns empty map if none)
 * `IsEmpty()` - Check if metadata is empty
 * `Clear()` - Remove all metadata
 
@@ -194,9 +225,14 @@ Handles all operational concerns with enhanced logging and race condition preven
 
 * Event queueing with atomic operations
 * Persistence with error handling
+* **Dynamic rebatching** - Flush processes all events in optimal batches for better performance
 * Automatic and manual flushing using Mutex
 * Batch formation with configurable size
-* Retry with exponential backoff and jitter (1000ms × 2^attempt + random jitter)
+* **Smart retry logic** based on HTTP status codes:
+  - **2xx (Success)**: Clear storage, no retry
+  - **4xx (Client Error)**: Drop events, no retry (prevents infinite loops)
+  - **5xx (Server Error)**: Retry with exponential backoff, re-queue on max retries
+  - **Network Errors**: Retry with exponential backoff, re-queue on max retries
 * De-queuing and re-queuing failed events with proper ordering
 * Loading persisted events on startup
 * Graceful shutdown with optional flush
@@ -245,21 +281,22 @@ type LoggerAdapter interface {
     Warn(message string, args ...interface{})
     Error(message string, args ...interface{})
 }
-```
+````
 
 **Log Levels**: `DEBUG`, `INFO`, `WARN`, `ERROR`, `NONE` (string-based)
 
 **Built-in Implementations**:
 
-* `PrintLoggerAdapter` - Standard log output with configurable log level (default: WARN)
-* `NoOpLoggerAdapter` - Silent logger that discards all messages
+- `PrintLoggerAdapter` - Standard log output with configurable log level (default: WARN)
+- `NoOpLoggerAdapter` - Silent logger that discards all messages
 
 **Usage in SDK**:
-* Client initialization and disposal
-* Event tracking operations
-* HTTP request attempts and failures
-* Retry logic with backoff timing
-* Storage operations
+
+- Client initialization and disposal
+- Event tracking operations
+- HTTP request attempts and failures
+- Retry logic with backoff timing
+- Storage operations
 
 #### HTTP Adapter
 
@@ -273,10 +310,10 @@ type HTTPAdapter interface {
 
 Default implementation (`NetHTTPAdapter`):
 
-* Uses `net/http`
-* JSON payloads
-* Combined headers (default + user headers)
-* Configurable API key header name
+- Uses `net/http`
+- JSON payloads
+- Combined headers (default + user headers)
+- Configurable API key header name
 
 #### Storage Adapter
 
@@ -292,9 +329,16 @@ type StorageAdapter interface {
 
 Default implementation (`FileStorageAdapter`):
 
-* JSON file written to disk (`ripple_events.json`)
-* Unlimited capacity
-* Suitable for server environments
+- JSON file written to disk (`ripple_events.json`)
+- Unlimited capacity
+- Suitable for server environments
+
+NoOp implementation (`NoOpStorageAdapter`):
+
+- No persistence operations
+- Save and Clear do nothing
+- Load returns empty array
+- Useful when persistence is not required
 
 ---
 
@@ -303,9 +347,7 @@ Default implementation (`FileStorageAdapter`):
 ### EventMetadata
 
 ```go
-type EventMetadata struct {
-    SchemaVersion string `json:"schemaVersion,omitempty"`
-}
+type EventMetadata = map[string]any
 ```
 
 ### Platform
@@ -325,8 +367,7 @@ type Event struct {
     Name     string                 `json:"name"`
     Payload  map[string]interface{} `json:"payload,omitempty"`
     IssuedAt int64                  `json:"issuedAt"`
-    Context  map[string]interface{} `json:"context,omitempty"`
-    Metadata *EventMetadata         `json:"metadata,omitempty"`
+    Metadata map[string]any         `json:"metadata,omitempty"`
     Platform *Platform              `json:"platform,omitempty"`
 }
 ```
@@ -381,18 +422,26 @@ if err := client.Init(); err != nil {
 defer client.Dispose()
 
 // Set shared metadata (attached to all events)
-client.SetMetadata("userId", "123")
-client.SetMetadata("appVersion", "1.0.0")
+if err := client.SetMetadata("userId", "123"); err != nil {
+    panic(err)
+}
+if err := client.SetMetadata("appVersion", "1.0.0"); err != nil {
+    panic(err)
+}
 
 // Track events
-client.Track("page_view", map[string]interface{}{
+if err := client.Track("page_view", map[string]interface{}{
     "page": "/home",
-}, nil)
+}); err != nil {
+    panic(err)
+}
 
 // Track with event-specific metadata
-client.Track("user_action", map[string]interface{}{
+if err := client.Track("user_action", map[string]interface{}{
     "button": "submit",
-}, &ripple.EventMetadata{SchemaVersion: stringPtr("2.0.0")})
+}, map[string]any{"schemaVersion": "2.0.0"}); err != nil {
+    panic(err)
+}
 
 // Manual flush
 client.Flush()
@@ -409,8 +458,12 @@ func stringPtr(s string) *string {
 
 ```go
 // Set shared metadata (attached to all events)
-client.SetMetadata("userId", "user-123")
-client.SetMetadata("sessionId", "session-abc")
+if err := client.SetMetadata("userId", "user-123"); err != nil {
+    panic(err)
+}
+if err := client.SetMetadata("sessionId", "session-abc"); err != nil {
+    panic(err)
+}
 
 // Track event with additional metadata
 err := client.Track("user_signup", map[string]interface{}{
@@ -422,7 +475,7 @@ err := client.Track("user_signup", map[string]interface{}{
 
 // Final event will have merged metadata:
 // - userId: "user-123" (from shared)
-// - sessionId: "session-abc" (from shared)  
+// - sessionId: "session-abc" (from shared)
 // - schemaVersion: "2.0.0" (from event-specific)
 ```
 
@@ -532,6 +585,7 @@ The project uses GitHub Actions for continuous integration on all pull requests:
 **Workflow File**: `.github/workflows/development.yml`
 
 **Jobs**:
+
 - **Unit Tests** - Runs `make test` and `make test-cover`
 - **Lint Code** - Runs `make fmt-check` and `make lint`
 - **Build Check** - Runs `make build`
@@ -575,30 +629,31 @@ The `make check` command runs the same validation as GitHub Actions CI, ensuring
 
 The project includes test files for every component:
 
-* `ripple_client_test.go`
-* `dispatcher_test.go`
-* `queue_test.go`
-* `storage_adapter_test.go`
-* `http_adapter_test.go`
+- `ripple_client_test.go`
+- `dispatcher_test.go`
+- `queue_test.go`
+- `storage_adapter_test.go`
+- `http_adapter_test.go`
 
 ### Manual Commands
 
 If you prefer to run commands directly:
 
-* `go build ./...` - Build all packages
-* `go test ./...` - Run all tests
-* `go test -v ./...` - Run tests with verbose output
-* `go test -cover ./...` - Run tests with coverage
-* `go vet ./...` - Run Go vet for static analysis
+- `go build ./...` - Build all packages
+- `go test ./...` - Run all tests
+- `go test -v ./...` - Run tests with verbose output
+- `go test -cover ./...` - Run tests with coverage
+- `go vet ./...` - Run Go vet for static analysis
 
 ### Playground
 
 The playground provides a local testing environment:
 
-* `playground/cmd/server/main.go` - HTTP server that receives and logs events
-* `playground/cmd/client/main.go` - Interactive client with comprehensive testing options
+- `playground/cmd/server/main.go` - HTTP server that receives and logs events
+- `playground/cmd/client/main.go` - Interactive client with comprehensive testing options
 
 **Usage:**
+
 ```bash
 # Terminal 1: Start server
 cd playground && make server
@@ -611,20 +666,22 @@ See [playground/README.md](./playground/README.md) for E2E testing scenarios.
 
 ### Recommendations
 
-* Strong test coverage for dispatcher and queue logic
-* Integration tests for persistence and HTTP transport
-* Benchmarks for high-volume event throughput
-* Linting via `golangci-lint`
+- Strong test coverage for dispatcher and queue logic
+- Integration tests for persistence and HTTP transport
+- Benchmarks for high-volume event throughput
+- Linting via `golangci-lint`
 
 ### Contributing Guidelines
 
 **Pull Request Requirements**:
+
 - All CI checks must pass (tests, linting, build)
 - Code must be formatted with `gofmt`
 - Tests must pass with coverage
 - No `go vet` warnings allowed
 
 **Local Development**:
+
 ```bash
 # Run the same checks as CI
 make check       # All CI checks in one command
@@ -639,11 +696,13 @@ make build       # Verify build
 The project includes GitHub templates to ensure consistent contributions:
 
 **Pull Request Template** (`.github/pull_request_template.md`):
+
 - Provides checklists for Bug and Feature PRs
 - Ensures proper issue linking with `fixes #number`
 - Requires tests and documentation for new features
 
 **Issue Templates** (`.github/ISSUE_TEMPLATE/`):
+
 - **Bug Report** (`bug_report.md`) - Structured template for reporting bugs with Go-specific environment details (OS, Go version, SDK version)
 - **Feature Request** (`feature_request.md`) - Template for suggesting new features with problem description and proposed solutions
 
@@ -654,23 +713,26 @@ These templates automatically appear when users create issues or pull requests, 
 The project uses [GoReleaser](https://goreleaser.com) for automated releases:
 
 **Configuration**: `.goreleaser.yaml`
+
 - **Library-focused**: Skips binary builds, focuses on source code releases
 - **Multi-platform archives**: Creates tar.gz (Linux/macOS) and zip (Windows) archives
 - **Comprehensive changelog**: Groups commits by type (Features, Bug Fixes, Performance)
 - **Source archives**: Includes all source files, documentation, and examples
 
 **Release Workflow** (`.github/workflows/release.yml`):
+
 - **Trigger**: Merge PR from branch matching `release/x.x.x` pattern (e.g., `release/1.0.0`)
 - **Process**: Runs tests, builds archives, generates changelog, creates GitHub release
 - **Assets**: Source archives, checksums, and release notes
 
 **Creating a Release**:
+
 ```bash
 # Create release branch with version in name
 git checkout -b release/0.0.1        # Stable release
 # or
 git checkout -b release/1.0.0-rc     # Release candidate
-# or  
+# or
 git checkout -b release/2.0.0-beta   # Beta release
 
 # Make any final changes, update version references, etc.
@@ -686,6 +748,7 @@ git push origin release/0.0.1
 ```
 
 **Local Testing**:
+
 ```bash
 # Test release configuration
 goreleaser check
@@ -700,30 +763,30 @@ goreleaser release --snapshot --clean
 
 ### Clear Responsibilities
 
-* Client: API surface
-* Dispatcher: internal mechanics
-* Queue: data structure, thread-safe
-* Adapters: extensibility
+- Client: API surface
+- Dispatcher: internal mechanics
+- Queue: data structure, thread-safe
+- Adapters: extensibility
 
 ### Concurrency Safety
 
-* Mutex around flush cycles
-* RWMutex for context access
-* Controlled goroutine lifecycle
+- Mutex around flush cycles
+- RWMutex for metadata access
+- Controlled goroutine lifecycle
 
 ### Reliability
 
-* Persistent queueing
-* Retried delivery with backoff
-* Safe process shutdown
-* Proper error handling (no panics in library code)
+- Persistent queueing
+- Retried delivery with backoff
+- Safe process shutdown
+- Proper error handling (no panics in library code)
 
 ### Simplicity
 
-* Single self-contained package
-* No external dependencies
-* Clean, predictable API
-* Modern Go idioms (use `any` instead of `interface{}`)
+- Single self-contained package
+- No external dependencies
+- Clean, predictable API
+- Modern Go idioms (use `any` instead of `interface{}`)
 
 ---
 
@@ -732,64 +795,83 @@ goreleaser release --snapshot --clean
 ### File Organization
 
 Following Go best practices:
-* All source files in root directory (no `src/` folder)
-* Test files co-located with source (`*_test.go`)
-* Adapters in separate `adapters/` package for modularity
-* Examples in `examples/` subdirectory
-* Single main package name: `ripple`
-* Adapter interfaces and implementations in `adapters` package
-* Use `any` instead of `interface{}` (Go 1.18+ best practice)
+
+- All source files in root directory (no `src/` folder)
+- Test files co-located with source (`*_test.go`)
+- Adapters in separate `adapters/` package for modularity
+- Examples in `examples/` subdirectory
+- Single main package name: `ripple`
+- Adapter interfaces and implementations in `adapters` package
+- Use `any` instead of `interface{}` (Go 1.18+ best practice)
 
 ### Concurrency Model
 
-* Dispatcher runs a background goroutine for scheduled flushing
-* All queue operations are mutex-protected
-* Context reads use RWMutex for concurrent access
-* Flush operations are serialized to prevent race conditions
+- Dispatcher runs a background goroutine for scheduled flushing
+- All queue operations are mutex-protected
+- Metadata reads use RWMutex for concurrent access
+- Flush operations are serialized to prevent race conditions
 
 ### Error Handling
 
-* All errors are returned explicitly
-* No panics in library code
-* Graceful degradation on network failures
-* Failed events are re-queued and persisted
+- All errors are returned explicitly
+- No panics in library code
+- Graceful degradation on network failures
+- Failed events are re-queued and persisted
 
 ### Memory Management
 
-* Events are stored in a linked list for efficient FIFO operations
-* Batching prevents unbounded memory growth
-* Persistence ensures events survive process restarts
-* No memory leaks from goroutines (proper cleanup on Dispose)
+- Events are stored in a linked list for efficient FIFO operations
+- Batching prevents unbounded memory growth
+- Persistence ensures events survive process restarts
+- No memory leaks from goroutines (proper cleanup on Dispose)
 
 ---
 
 ## API Contract
 
-The SDK follows a framework-agnostic design and API contract defined in the main Ripple repository. See: https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md
+The SDK follows a framework-agnostic design and API contract defined in the main Ripple repository. See: <https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md>
 
 ### Key Contract Points
 
-* **Initialization Required**: `Init()` must be called before `Track()`
-* **Error Handling**: `Track()` returns error if not initialized
-* **Metadata Merging**: Shared metadata + event-specific metadata
-* **Platform Detection**: Automatic "server" platform for Go SDK
-* **Retry Logic**: Exponential backoff with jitter (1000ms × 2^attempt + random jitter)
-* **Graceful Shutdown**: Events are flushed and persisted on dispose
+- **Initialization Required**: `Init()` must be called before `Track()`
+- **Error Handling**: `Track()` returns error if not initialized
+- **Metadata Merging**: Shared metadata + event-specific metadata
+- **Platform Detection**: Automatic "server" platform for Go SDK
+- **Retry Logic**: Smart retry behavior based on HTTP status codes (2xx/4xx/5xx/Network)
+- **Graceful Shutdown**: Events are flushed and persisted on dispose
 
 ---
 
 ## Recent Changes
 
+### Generic Type System Removal (Latest)
+- **Removed all generic types** - Simplified from `Client[TEvents, TMetadata]` to simple `Client`
+- **Updated API** - Changed from `NewClient[T, M](config)` to `NewClient(config)`
+- **Performance optimizations** - Added object pooling and pre-allocated platform objects
+- **Simplified codebase** - Removed type complexity while maintaining functionality
+- **Updated all documentation** - Removed generic examples and type-safe usage sections
+
+### Contract Compliance
+
+- **Removed** non-contract `Context` field from Event struct per specification
+- **Fixed** metadata API to match contract exactly:
+  - `SetMetadata(key, value)` - Set shared metadata attached to all events
+  - `GetMetadata()` - Returns all metadata as map (empty map if none set)
+- **Removed** individual metadata getter `GetMetadata(key)` (not in contract)
+- **Updated** Track method to use only metadata without context merging
+- **Achieved** 98.8% test coverage with contract-compliant implementation
+
 ### API Unification (Breaking Change)
+
 - **Removed** `SetContext()` and `GetContext()` methods to match TypeScript SDK
 - **Context is now unified with metadata** - use `SetMetadata()` instead
 - Updated API to match TypeScript version exactly:
   - `SetMetadata(key, value)` - Set shared metadata attached to all events
-  - `GetMetadata(key)` - Get shared metadata value  
-  - `GetAllMetadata()` - Get all shared metadata
+  - `GetMetadata()` - Returns all metadata as map (contract-compliant)
 - Updated all tests and playground to use new unified API
 
 ### Adapter Requirements (Breaking Change)
+
 - **HTTPAdapter** and **StorageAdapter** are now **required** (matching TypeScript SDK)
 - **LoggerAdapter** remains optional with PrintLoggerAdapter as default
 - Added validation that panics if required adapters are missing
@@ -798,12 +880,14 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 - Added playground binaries to .gitignore to prevent accidental commits
 
 ### File Naming Improvements
+
 - Renamed `client.go` to `ripple_client.go` for better clarity
 - Renamed `client_test.go` to `ripple_client_test.go` to match
 - Restructured playground to follow Go conventions: `cmd/client/main.go` and `cmd/server/main.go`
 - Updated project structure documentation
 
 ### Enhanced Playground Client
+
 - Added comprehensive testing options matching TypeScript playground maturity
 - **Basic Event Tracking**: Simple events, events with payload, metadata, and custom metadata
 - **Metadata Management**: Set shared metadata, track with shared metadata
@@ -813,51 +897,61 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 - Organized menu with categorized options for better user experience
 
 ### Logger Interface Addition
+
 - Added `LoggerAdapter` interface with Debug/Info/Warn/Error methods
 - Implemented `PrintLoggerAdapter` with configurable log levels
 - Implemented `NoOpLoggerAdapter` for silent operation
 - Integrated logging throughout Client and Dispatcher operations
 
 ### Unified Metadata System
+
 - Added `MetadataManager` for thread-safe shared metadata management
 - Implemented metadata merging (shared + event-specific)
-- Added `SetMetadata()`, `GetMetadata()`, `GetAllMetadata()` methods
-- Maintains backward compatibility with `SetContext()` and `GetContext()`
+- Added `SetMetadata()`, `GetMetadata()` methods (contract-compliant)
 
 ### Initialization Validation
+
 - `Track()` now returns error if called before `Init()`
 - Added initialization state tracking in Client
 - Prevents data loss from uninitialized client usage
 
 ### Race Condition Prevention
+
 - Added `Mutex` component for atomic operations
 - Updated Dispatcher to use `RunAtomic()` for flush operations
 - Enhanced thread safety for concurrent operations
 
 ### Enhanced Configuration
+
 - Added `APIKeyHeader` support for custom header names
 - Flattened adapter configuration directly in `ClientConfig`
 - Improved configuration validation with required field checks
 
 ### Adapter Naming Refactor
+
 - Renamed `DefaultHTTPAdapter` to `NetHTTPAdapter` for better Go conventions
 - Updated constructor: `NewDefaultHTTPAdapter()` → `NewNetHTTPAdapter()`
 
 ### Timer Behavior Enhancement
+
 - Timer now only starts when first new event is tracked, not during SDK initialization
 - Timer automatically stops when queue becomes empty to save CPU cycles and reduce log noise
 - If persisted events exist, they remain in queue until a new event triggers the timer
 - Maintains same API while improving efficiency for apps with persisted events
 
 ### Graceful Shutdown Enhancement
+
 - Added `StopWithoutFlush()` and `DisposeWithoutFlush()` methods for graceful shutdown without flushing events
 - Fixed playground client exit behavior to persist events without sending to server
 
 ### Error Handling Improvement
+
 - Changed `NewClient()` to return `(*Client, error)` instead of panicking on invalid configuration
 - Libraries should never panic as it crashes the entire application and can't be handled by users
 - Configuration validation errors are now properly returnable and handleable
+
 ### Go Version Upgrade
+
 - Upgraded from Go 1.23 to Go 1.25
 - Replaced manual `wg.Add(1)` + `go func()` + `defer wg.Done()` with cleaner `wg.Go()` method
 - Reduces boilerplate code and eliminates WaitGroup management errors
