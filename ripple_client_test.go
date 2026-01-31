@@ -794,7 +794,7 @@ func TestClient_SharedMetadataMerging(t *testing.T) {
 }
 func TestClient_TrackWithInvalidPayload(t *testing.T) {
 	client := createTestClient()
-	
+
 	if err := client.Init(); err != nil {
 		t.Fatalf("failed to init: %v", err)
 	}
@@ -812,7 +812,7 @@ func TestClient_TrackWithInvalidPayload(t *testing.T) {
 
 func TestClient_TrackWithInvalidMetadata(t *testing.T) {
 	client := createTestClient()
-	
+
 	if err := client.Init(); err != nil {
 		t.Fatalf("failed to init: %v", err)
 	}
@@ -827,7 +827,7 @@ func TestClient_TrackWithInvalidMetadata(t *testing.T) {
 
 func TestClient_SharedMetadataOverride(t *testing.T) {
 	client := createTestClient()
-	
+
 	if err := client.Init(); err != nil {
 		t.Fatalf("failed to init: %v", err)
 	}
@@ -848,17 +848,17 @@ func TestClient_SharedMetadataOverride(t *testing.T) {
 			t.Error("failed to dequeue event")
 			return
 		}
-		
+
 		// Shared metadata should be present
 		if event.Metadata["environment"] != "test" {
 			t.Errorf("expected environment to be test, got %v", event.Metadata["environment"])
 		}
-		
+
 		// Event-specific metadata should override shared metadata
 		if event.Metadata["version"] != "2.0.0" {
 			t.Errorf("expected version to be 2.0.0 (overridden), got %v", event.Metadata["version"])
 		}
-		
+
 		// Event-specific metadata should be present
 		if event.Metadata["source"] != "button" {
 			t.Errorf("expected source to be button, got %v", event.Metadata["source"])
@@ -870,7 +870,7 @@ func TestClient_SharedMetadataOverride(t *testing.T) {
 
 func TestClient_TrackWithOnlySharedMetadata(t *testing.T) {
 	client := createTestClient()
-	
+
 	if err := client.Init(); err != nil {
 		t.Fatalf("failed to init: %v", err)
 	}
@@ -890,12 +890,12 @@ func TestClient_TrackWithOnlySharedMetadata(t *testing.T) {
 			t.Error("failed to dequeue event")
 			return
 		}
-		
+
 		// Only shared metadata should be present
 		if event.Metadata["userId"] != "123" {
 			t.Errorf("expected userId to be 123, got %v", event.Metadata["userId"])
 		}
-		
+
 		// Should have exactly one metadata field
 		if len(event.Metadata) != 1 {
 			t.Errorf("expected 1 metadata field, got %d", len(event.Metadata))
@@ -907,7 +907,7 @@ func TestClient_TrackWithOnlySharedMetadata(t *testing.T) {
 
 func TestClient_TrackWithNoMetadata(t *testing.T) {
 	client := createTestClient()
-	
+
 	if err := client.Init(); err != nil {
 		t.Fatalf("failed to init: %v", err)
 	}
@@ -924,7 +924,7 @@ func TestClient_TrackWithNoMetadata(t *testing.T) {
 			t.Error("failed to dequeue event")
 			return
 		}
-		
+
 		// Metadata should be nil when no metadata is set
 		if event.Metadata != nil {
 			t.Errorf("expected metadata to be nil, got %v", event.Metadata)
@@ -940,42 +940,42 @@ func TestDispatcher_StopTimerIfEmpty(t *testing.T) {
 		MaxBatchSize:  5,
 		MaxRetries:    3,
 	}
-	
+
 	mockHTTP := &mockHTTPAdapter{}
 	mockStorage := &mockStorageAdapter{}
 	dispatcher := NewDispatcher(config, mockHTTP, mockStorage, map[string]string{})
-	
+
 	dispatcher.Start()
 	defer dispatcher.Stop()
-	
+
 	// Add an event to start the timer
 	event := Event{Name: "test", IssuedAt: time.Now().UnixMilli()}
 	dispatcher.Enqueue(event)
-	
+
 	// Wait for timer to start
 	time.Sleep(50 * time.Millisecond)
-	
+
 	// Flush to empty the queue
 	dispatcher.Flush()
-	
+
 	// Wait for timer to potentially stop
 	time.Sleep(150 * time.Millisecond)
-	
+
 	// Timer should have stopped (this tests the stopTimerIfEmpty function)
 	// We can't directly verify this without exposing internal state,
 	// but the function will be called during the flush process
 }
 func TestClient_InitWithStorageError(t *testing.T) {
 	client := createTestClient()
-	
+
 	// Use a storage adapter that will fail during Load
 	client.storageAdapter = &mockStorageAdapterWithError{}
-	
+
 	err := client.Init()
 	if err == nil {
 		t.Error("expected error during Init with failing storage adapter")
 	}
-	
+
 	// Client should not be initialized
 	if client.initialized {
 		t.Error("client should not be initialized after Init error")
@@ -984,14 +984,14 @@ func TestClient_InitWithStorageError(t *testing.T) {
 
 func TestClient_InitTwice(t *testing.T) {
 	client := createTestClient()
-	
+
 	// First init should succeed
 	err := client.Init()
 	if err != nil {
 		t.Fatalf("first Init failed: %v", err)
 	}
 	defer client.Dispose()
-	
+
 	// Second init should be no-op and return nil
 	err = client.Init()
 	if err != nil {

@@ -90,7 +90,7 @@ func TestFileStorageAdapter_SaveMarshalError(t *testing.T) {
 func TestFileStorageAdapter_LoadPermissionError(t *testing.T) {
 	// Create a file in a directory that doesn't exist
 	adapter := NewFileStorageAdapter("/nonexistent/directory/file.json")
-	
+
 	// This should return empty array for nonexistent file/directory
 	events, err := adapter.Load()
 	if err != nil {
