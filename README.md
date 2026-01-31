@@ -32,7 +32,13 @@ for browsers.
 ## Installation
 
 ```bash
-go get github.com/Tap30/ripple-go
+go get github.com/Tap30/ripple-go@latest
+```
+
+Or install a specific version:
+
+```bash
+go get github.com/Tap30/ripple-go@v0.0.1
 ```
 
 ## Quick Start

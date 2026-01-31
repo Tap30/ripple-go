@@ -18,29 +18,46 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: "🔍 Extract version from branch name"
-        id: extract-version
-        run: ./scripts/extract-version.sh "${{ github.event.pull_request.head.ref }}"
+      - name: "🔍 Check if version changed"
+        id: version-check
+        run: |
+          if [ ! -f .versionrc ]; then
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+            echo "❌ .versionrc file not found"
+            exit 0
+          fi
+          
+          VERSION=$(cat .versionrc | tr -d '[:space:]')
+          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Check if this version tag already exists
+          if git tag | grep -q "^v$VERSION$"; then
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+            echo "❌ Version v$VERSION already exists"
+          else
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+            echo "✅ New version detected: v$VERSION"
+          fi
 
       - name: "🔧 Setup Go"
-        if: steps.extract-version.outputs.should_release == 'true'
+        if: steps.version-check.outputs.version_changed == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           cache: true
 
       - name: "📦 Download dependencies"
-        if: steps.extract-version.outputs.should_release == 'true'
+        if: steps.version-check.outputs.version_changed == 'true'
         run: go mod download
 
       - name: "🔍 Run tests before release"
-        if: steps.extract-version.outputs.should_release == 'true'
+        if: steps.version-check.outputs.version_changed == 'true'
         run: make test-cover
 
       - name: "🏷️ Create and push tag"
-        if: steps.extract-version.outputs.should_release == 'true'
+        if: steps.version-check.outputs.version_changed == 'true'
         run: |
-          VERSION="${{ steps.extract-version.outputs.version }}"
+          VERSION="v${{ steps.version-check.outputs.current_version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$VERSION" -m "Release $VERSION"
@@ -48,7 +65,7 @@ jobs:
           echo "Created and pushed tag: $VERSION"
 
       - name: "🚀 Run GoReleaser"
-        if: steps.extract-version.outputs.should_release == 'true'
+        if: steps.version-check.outputs.version_changed == 'true'
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser

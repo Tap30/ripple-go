@@ -34,10 +34,28 @@ build:
 	$(GO) build ./...
 
 # CI checks (same as GitHub Actions)
-check: fmt-check lint test build
+check: fmt-check lint test build version-check
 	@echo "All checks passed!"
 
 # Release management
+version-sync:
+	@echo "Syncing version between .versionrc and version.go..."
+	./scripts/sync-version.sh
+
+version-check:
+	@echo "Checking version consistency..."
+	@VERSION_RC=$$(cat .versionrc | tr -d '[:space:]'); \
+	VERSION_GO=$$(grep 'const Version' version.go | sed 's/.*"\(.*\)".*/\1/'); \
+	if [ "$$VERSION_RC" != "$$VERSION_GO" ]; then \
+		echo "❌ Version mismatch:"; \
+		echo "  .versionrc: $$VERSION_RC"; \
+		echo "  version.go: $$VERSION_GO"; \
+		echo "Run 'make version-sync' to fix"; \
+		exit 1; \
+	else \
+		echo "✅ Version consistent: $$VERSION_RC"; \
+	fi
+
 release-test:
 	@echo "Testing release configuration..."
 	goreleaser check
@@ -76,10 +94,14 @@ help:
 	@echo "Building:"
 	@echo "  make build        - Build all packages"
 	@echo ""
+	@echo "Release Management:"
+	@echo "  make version-sync   - Sync version from .versionrc to version.go"
+	@echo "  make version-check  - Check version consistency"
+	@echo "  make release-test   - Test release configuration"
+	@echo "  make release        - Create actual release"
+	@echo ""
 	@echo "CI/CD:"
-	@echo "  make check        - Run all CI checks (fmt, lint, test, build)"
-	@echo "  make release-test - Test release configuration"
-	@echo "  make release      - Create actual release"
+	@echo "  make check        - Run all CI checks (fmt, lint, test, build, version)"
 	@echo ""
 	@echo "Development:"
 	@echo "  make dev-deps     - Install development dependencies"
