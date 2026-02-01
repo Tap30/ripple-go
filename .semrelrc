@@ -1,4 +1,5 @@
 {
+  "maintainedVersion": "0",
   "plugins": {
     "commit-analyzer": {
       "name": "default"
@@ -16,7 +17,9 @@
       "name": "github"
     },
     "hooks": {
-      "names": ["exec"],
+      "names": [
+        "exec"
+      ],
       "options": {
         "exec": {
           "prepare": [
@@ -26,5 +29,7 @@
       }
     }
   },
-  "update": ["version.go"]
+  "update": [
+    "version.go"
+  ]
 }
