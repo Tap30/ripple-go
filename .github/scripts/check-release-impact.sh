@@ -47,7 +47,27 @@ case $RELEASE_TYPE in
         ;;
 esac
 
-# Create comment body with help section
+# Create comment body with help section (using single quotes to preserve backticks)
+read -r -d '' HELP_SECTION << 'EOF' || true
+<details>
+<summary>📋 PR Title Format Guide</summary>
+
+**Triggers releases:**
+- `feat: description` → Minor release (new features)
+- `fix: description` → Patch release (bug fixes)
+- `feat!: description` → Major release (breaking changes)
+- `fix!: description` → Major release (breaking changes)
+
+**No release:**
+- `docs: description` → Documentation changes
+- `chore: description` → Maintenance tasks
+- `ci: description` → CI/CD changes
+- `test: description` → Test changes
+- `refactor: description` → Code refactoring
+
+</details>
+EOF
+
 COMMENT_BODY="## Release Impact
 
 $MESSAGE"
@@ -60,23 +80,7 @@ fi
 
 COMMENT_BODY="$COMMENT_BODY
 
-<details>
-<summary>📋 PR Title Format Guide</summary>
-
-**Triggers releases:**
-- \`feat: description\` → Minor release (new features)
-- \`fix: description\` → Patch release (bug fixes)
-- \`feat!: description\` → Major release (breaking changes)
-- \`fix!: description\` → Major release (breaking changes)
-
-**No release:**
-- \`docs: description\` → Documentation changes
-- \`chore: description\` → Maintenance tasks
-- \`ci: description\` → CI/CD changes
-- \`test: description\` → Test changes
-- \`refactor: description\` → Code refactoring
-
-</details>"
+$HELP_SECTION"
 
 # Output for GitHub Actions
 echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
