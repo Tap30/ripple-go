@@ -33,6 +33,12 @@ jobs:
       - name: "🔍 Run all checks"
         run: make check
 
+      - name: "🔧 Run golangci-lint"
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
       - name: "📋 Check release impact"
         id: release-check
         run: |
