@@ -298,6 +298,8 @@ Check the
 [contributing guide](https://github.com/Tap30/ripple-go/blob/main/CONTRIBUTING.md)  
 for information on development workflow, proposing improvements, and running tests.
 
+**Note**: This project uses [Conventional Commits](https://www.conventionalcommits.org/) and automated semantic versioning with [go-semantic-release](https://github.com/go-semantic-release/semantic-release). Use proper commit message formats like `feat:`, `fix:`, `docs:`, etc.
+
 ## License
 
 Distributed under the  

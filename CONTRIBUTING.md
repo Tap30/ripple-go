@@ -233,58 +233,79 @@ license your contribution under the
 [MIT license](https://github.com/Tap30/ripple-go/blob/main/LICENSE).
 ## Release Process
 
-### Versioning
+### Automated Semantic Versioning
 
-This project uses a `.versionrc` file to manage versions. The version format follows [Semantic Versioning](https://semver.org/).
+This project uses [go-semantic-release](https://github.com/go-semantic-release/semantic-release) for fully automated version management and package publishing based on [Conventional Commits](https://www.conventionalcommits.org/).
 
-#### Making a Release
+#### Commit Message Format
 
-1. **Create a new branch** for the version update:
-   ```bash
-   git checkout -b release/1.2.3
-   ```
+Follow the Conventional Commits specification:
 
-2. **Update the version** in `.versionrc`:
-   ```bash
-   echo "1.2.3" > .versionrc
-   ```
+```bash
+<type>[optional scope]: <description>
 
-3. **Sync the version** to Go code:
-   ```bash
-   make version-sync
-   ```
+[optional body]
 
-4. **Verify version consistency**:
-   ```bash
-   make version-check
-   ```
+[optional footer(s)]
+```
 
-5. **Commit and push** the changes:
-   ```bash
-   git add .versionrc version.go
-   git commit -m "chore: bump version to 1.2.3"
-   git push origin release/1.2.3
-   ```
+**Types that trigger releases:**
+- `feat`: A new feature (→ minor version bump)
+- `fix`: A bug fix (→ patch version bump)
+- `feat!` or `fix!`: Breaking change (→ major version bump)
 
-6. **Create a Pull Request** to main branch
+**Types that DON'T trigger releases:**
+- `chore`: Maintenance tasks
+- `docs`: Documentation changes
+- `ci`: CI/CD changes
+- `test`: Adding or updating tests
+- `refactor`: Code refactoring without feature changes
 
-7. **Merge the PR**: GitHub Actions will automatically create a release tag and GitHub release when the PR is merged to main (only if `.versionrc` contains a new version).
+#### Examples
 
-#### Version Guidelines
+```bash
+# Patch release (0.1.0 → 0.1.1)
+git commit -m "fix: resolve memory leak in dispatcher"
 
-- **Patch** (x.x.X): Bug fixes, documentation updates
-- **Minor** (x.X.x): New features, backward compatible changes  
-- **Major** (X.x.x): Breaking changes, API changes
+# Minor release (0.1.1 → 0.2.0)
+git commit -m "feat: add NoOpStorageAdapter for optional persistence"
+
+# Major release (0.2.0 → 1.0.0)
+git commit -m "feat!: change EventMetadata from struct to map[string]any"
+
+# No release
+git commit -m "docs: update README with new examples"
+git commit -m "chore: update dependencies"
+```
+
+#### Release Workflow
+
+1. **Create feature branch**: `git checkout -b feat/new-feature`
+2. **Make changes** with proper commit messages
+3. **Create Pull Request** to `main` branch
+4. **PR gets reviewed** and merged
+5. **Automatic release**: go-semantic-release analyzes commits and creates release if needed
+
+#### What Happens Automatically
+
+When commits are pushed to `main`:
+- ✅ Analyzes commit messages since last release
+- ✅ Determines next version number (semver)
+- ✅ Updates `version.go` with new version
+- ✅ Generates changelog from commit messages
+- ✅ Creates Git tag (e.g., `v1.2.3`)
+- ✅ Creates GitHub release with notes
+- ✅ Runs GoReleaser to build and publish binaries
 
 #### Development Commands
 
 ```bash
-# Sync version from .versionrc to version.go
-make version-sync
+# Run all CI checks (same as GitHub Actions)
+make check
 
-# Check if versions are consistent
-make version-check
-
-# Test release configuration
+# Test release configuration locally
 make release-test
+
+# Manual release (only use in emergencies)
+make release
 ```

@@ -1,16 +1,14 @@
 name: Release
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches: [main]
 
 permissions:
   contents: write
 
 jobs:
-  auto-release:
-    if: github.event.pull_request.merged == true
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: "☁️ Checkout repository"
@@ -18,58 +16,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: "🔍 Check if version changed"
-        id: version-check
-        run: |
-          if [ ! -f .versionrc ]; then
-            echo "version_changed=false" >> $GITHUB_OUTPUT
-            echo "❌ .versionrc file not found"
-            exit 0
-          fi
-          
-          VERSION=$(cat .versionrc | tr -d '[:space:]')
-          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
-          
-          # Check if this version tag already exists
-          if git tag | grep -q "^v$VERSION$"; then
-            echo "version_changed=false" >> $GITHUB_OUTPUT
-            echo "❌ Version v$VERSION already exists"
-          else
-            echo "version_changed=true" >> $GITHUB_OUTPUT
-            echo "✅ New version detected: v$VERSION"
-          fi
-
       - name: "🔧 Setup Go"
-        if: steps.version-check.outputs.version_changed == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           cache: true
 
       - name: "📦 Download dependencies"
-        if: steps.version-check.outputs.version_changed == 'true'
         run: go mod download
 
-      - name: "🔍 Run tests before release"
-        if: steps.version-check.outputs.version_changed == 'true'
-        run: make test-cover
+      - name: "🔍 Run all checks"
+        run: make check
 
-      - name: "🏷️ Create and push tag"
-        if: steps.version-check.outputs.version_changed == 'true'
-        run: |
-          VERSION="v${{ steps.version-check.outputs.current_version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$VERSION" -m "Release $VERSION"
-          git push origin "$VERSION"
-          echo "Created and pushed tag: $VERSION"
-
-      - name: "🚀 Run GoReleaser"
-        if: steps.version-check.outputs.version_changed == 'true'
-        uses: goreleaser/goreleaser-action@v6
+      - name: "🚀 Semantic Release"
+        uses: go-semantic-release/action@v1
         with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean
+          hooks: goreleaser
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

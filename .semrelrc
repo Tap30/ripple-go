@@ -1,0 +1,29 @@
+{
+  "plugins": {
+    "commit-analyzer": {
+      "name": "default"
+    },
+    "ci-condition": {
+      "name": "github"
+    },
+    "changelog-generator": {
+      "name": "default",
+      "options": {
+        "emojis": "true"
+      }
+    },
+    "provider": {
+      "name": "github"
+    },
+    "hooks": {
+      "names": ["exec"],
+      "options": {
+        "exec": {
+          "prepare": [
+            "echo 'package ripple\n\n// Version represents the current version of the Ripple Go SDK\nconst Version = \"{{.Version}}\"' > version.go"
+          ]
+        }
+      }
+    }
+  }
+}
