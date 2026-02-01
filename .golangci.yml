@@ -1,0 +1,51 @@
+run:
+  timeout: 5m
+  go: '1.25'
+
+linters:
+  enable:
+    - gocritic
+    - revive
+    - gosimple
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    - gocyclo
+    - dupl
+    - gomodguard
+
+linters-settings:
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - experimental
+    disabled-checks:
+      - unnamedResult
+      - hugeParam
+      - ifElseChain
+  
+  revive:
+    rules:
+      - name: use-any
+        severity: warning
+        disabled: false
+
+  errcheck:
+    exclude-functions:
+      - (*testing.T).Fatalf
+      - (*testing.T).Errorf
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+    - path: dispatcher\.go
+      linters:
+        - errcheck

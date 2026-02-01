@@ -87,16 +87,16 @@ func main() {
     }
 
     // Track events
-    if err := client.Track("page_view", map[string]interface{}{
+    if err := client.Track("page_view", map[string]any{
         "page": "/home",
     }); err != nil {
         panic(err)
     }
 
     // Track with metadata
-    if err := client.Track("user_action", map[string]interface{}{
+    if err := client.Track("user_action", map[string]any{
         "button": "submit",
-    }, map[string]interface{}{
+    }, map[string]any{
         "schemaVersion": "1.0.0",
     }); err != nil {
         panic(err)
@@ -134,18 +134,17 @@ Initializes the client and starts the dispatcher. Must be called before tracking
 
 Tracks an event with optional payload and metadata. Supports three usage patterns:
 
-
 - `Track(name)` - Simple event tracking
 - `Track(name, payload)` - Event with payload
 - `Track(name, payload, metadata)` - Event with payload and metadata
 
 Returns error if event name is empty, exceeds 255 characters, or if client is not initialized.
 
-#### `SetMetadata(key string, value interface{}) error`
+#### `SetMetadata(key string, value any) error`
 
 Sets a metadata value that will be attached to all subsequent events. Returns error if key is empty or exceeds 255 characters.
 
-#### `GetMetadata() map[string]interface{}`
+#### `GetMetadata() map[string]any`
 
 Returns a copy of all stored metadata. Returns empty map if no metadata is set.
 

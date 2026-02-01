@@ -3,12 +3,14 @@
 ## Recent Changes
 
 ### Dynamic Rebatching in Flush (Latest)
+
 - **Updated Flush logic** - Now processes all queued events in optimal batches
 - **Improved efficiency** - Clears entire queue at once, then processes in batches
 - **Better performance** - Reduces queue operations and improves throughput
 - **Matches TypeScript SDK** - Consistent behavior across all Ripple SDKs
 
 ### Smart Retry Logic Update
+
 - **Updated retry behavior** - Now follows intelligent status code-based retry logic
 - **4xx Client Errors** - No retry, events are dropped (prevents infinite loops)
 - **5xx Server Errors** - Retry with exponential backoff, re-queue on max retries
@@ -17,6 +19,7 @@
 - **Enhanced logging** - Better visibility into retry decisions and event handling
 
 ### Generic Type System Removal
+
 - **Removed all generic types** - Simplified from `Client[TEvents, TMetadata]` to simple `Client`
 - **Updated API** - Changed from `NewClient[T, M](config)` to `NewClient(config)`
 - **Performance optimizations** - Added object pooling and pre-allocated platform objects
@@ -276,10 +279,10 @@ Interface defined in `adapters/logger_adapter.go`:
 
 ```go
 type LoggerAdapter interface {
-    Debug(message string, args ...interface{})
-    Info(message string, args ...interface{})
-    Warn(message string, args ...interface{})
-    Error(message string, args ...interface{})
+    Debug(message string, args ...any)
+    Info(message string, args ...any)
+    Warn(message string, args ...any)
+    Error(message string, args ...any)
 }
 ````
 
@@ -365,7 +368,7 @@ type Platform struct {
 ```go
 type Event struct {
     Name     string                 `json:"name"`
-    Payload  map[string]interface{} `json:"payload,omitempty"`
+    Payload  map[string]any `json:"payload,omitempty"`
     IssuedAt int64                  `json:"issuedAt"`
     Metadata map[string]any         `json:"metadata,omitempty"`
     Platform *Platform              `json:"platform,omitempty"`
@@ -389,7 +392,7 @@ type DispatcherConfig struct {
 type HTTPResponse struct {
     OK     bool
     Status int
-    Data   interface{}
+    Data   any
 }
 ```
 
@@ -430,14 +433,14 @@ if err := client.SetMetadata("appVersion", "1.0.0"); err != nil {
 }
 
 // Track events
-if err := client.Track("page_view", map[string]interface{}{
+if err := client.Track("page_view", map[string]any{
     "page": "/home",
 }); err != nil {
     panic(err)
 }
 
 // Track with event-specific metadata
-if err := client.Track("user_action", map[string]interface{}{
+if err := client.Track("user_action", map[string]any{
     "button": "submit",
 }, map[string]any{"schemaVersion": "2.0.0"}); err != nil {
     panic(err)
@@ -466,7 +469,7 @@ if err := client.SetMetadata("sessionId", "session-abc"); err != nil {
 }
 
 // Track event with additional metadata
-err := client.Track("user_signup", map[string]interface{}{
+err := client.Track("user_signup", map[string]any{
     "email": "user@example.com",
     "plan":  "premium",
 }, &ripple.EventMetadata{
@@ -533,19 +536,19 @@ type MyLoggerAdapter struct {
     logger *log.Logger
 }
 
-func (l *MyLoggerAdapter) Debug(message string, args ...interface{}) {
+func (l *MyLoggerAdapter) Debug(message string, args ...any) {
     l.logger.Printf("[DEBUG] "+message, args...)
 }
 
-func (l *MyLoggerAdapter) Info(message string, args ...interface{}) {
+func (l *MyLoggerAdapter) Info(message string, args ...any) {
     l.logger.Printf("[INFO] "+message, args...)
 }
 
-func (l *MyLoggerAdapter) Warn(message string, args ...interface{}) {
+func (l *MyLoggerAdapter) Warn(message string, args ...any) {
     l.logger.Printf("[WARN] "+message, args...)
 }
 
-func (l *MyLoggerAdapter) Error(message string, args ...interface{}) {
+func (l *MyLoggerAdapter) Error(message string, args ...any) {
     l.logger.Printf("[ERROR] "+message, args...)
 }
 
@@ -786,7 +789,7 @@ goreleaser release --snapshot --clean
 - Single self-contained package
 - No external dependencies
 - Clean, predictable API
-- Modern Go idioms (use `any` instead of `interface{}`)
+- Modern Go idioms (use `any` instead of `any`)
 
 ---
 
@@ -802,7 +805,7 @@ Following Go best practices:
 - Examples in `examples/` subdirectory
 - Single main package name: `ripple`
 - Adapter interfaces and implementations in `adapters` package
-- Use `any` instead of `interface{}` (Go 1.18+ best practice)
+- Use `any` instead of `any` (Go 1.18+ best practice)
 
 ### Concurrency Model
 
@@ -845,6 +848,7 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 ## Recent Changes
 
 ### Generic Type System Removal (Latest)
+
 - **Removed all generic types** - Simplified from `Client[TEvents, TMetadata]` to simple `Client`
 - **Updated API** - Changed from `NewClient[T, M](config)` to `NewClient(config)`
 - **Performance optimizations** - Added object pooling and pre-allocated platform objects

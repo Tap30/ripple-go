@@ -13,10 +13,29 @@ permissions:
   pull-requests: write
 
 jobs:
-  check:
-    name: "All Checks"
+  lint:
+    name: "🔧 Lint"
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
+    steps:
+      - name: "☁️ Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Setup Go"
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: "🔧 Install and run golangci-lint"
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run --timeout=5m
+
+  test:
+    name: "🧪 Test"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: "☁️ Checkout repository"
         uses: actions/checkout@v4
@@ -30,8 +49,53 @@ jobs:
       - name: "📦 Download dependencies"
         run: go mod download
 
-      - name: "🔍 Run all checks"
-        run: make check
+      - name: "🧪 Run tests"
+        run: make test-cover
+
+  format:
+    name: "📝 Format"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: "☁️ Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Setup Go"
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: "📝 Check formatting"
+        run: make fmt-check
+
+  build:
+    name: "🏗️ Build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: "☁️ Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "🔧 Setup Go"
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: "📦 Download dependencies"
+        run: go mod download
+
+      - name: "🏗️ Build"
+        run: make build
+
+  release-check:
+    name: "📋 Release Impact"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: "☁️ Checkout repository"
+        uses: actions/checkout@v4
 
       - name: "📋 Check release impact"
         id: release-check

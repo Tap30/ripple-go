@@ -27,6 +27,12 @@ fmt-check:
 lint:
 	@echo "Running linter..."
 	$(GO) vet ./...
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		echo "Running golangci-lint..."; \
+		golangci-lint run; \
+	else \
+		echo "golangci-lint not found, skipping advanced linting"; \
+	fi
 
 # Building
 build:
