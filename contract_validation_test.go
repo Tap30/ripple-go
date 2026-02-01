@@ -2,14 +2,9 @@ package ripple
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 )
-
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
-}
 
 // TestContractCompliance validates that all API signatures match the contract specification exactly
 func TestContractCompliance(t *testing.T) {

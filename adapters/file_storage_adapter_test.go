@@ -63,7 +63,7 @@ func TestFileStorageAdapter_LoadInvalidJSON(t *testing.T) {
 	filepath := "test_invalid.json"
 	defer os.Remove(filepath)
 
-	os.WriteFile(filepath, []byte("invalid json"), 0644)
+	os.WriteFile(filepath, []byte("invalid json"), 0o644)
 
 	adapter := NewFileStorageAdapter(filepath)
 	_, err := adapter.Load()

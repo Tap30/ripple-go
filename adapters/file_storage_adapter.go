@@ -28,7 +28,7 @@ func (f *FileStorageAdapter) Save(events []Event) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(f.filepath, data, 0644)
+	return os.WriteFile(f.filepath, data, 0o644)
 }
 
 // Load retrieves events from a JSON file.

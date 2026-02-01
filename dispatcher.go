@@ -83,17 +83,6 @@ func (d *Dispatcher) startTimerIfNeeded() {
 	}
 }
 
-func (d *Dispatcher) stopTimerIfEmpty() {
-	d.timerMu.Lock()
-	defer d.timerMu.Unlock()
-
-	if d.timerStarted && d.queue.IsEmpty() {
-		d.ticker.Stop()
-		d.timerStarted = false
-		d.loggerAdapter.Debug("Timer stopped - queue is empty")
-	}
-}
-
 func (d *Dispatcher) Flush() {
 	d.flushMutex.RunAtomic(func() error {
 		// Early return if queue is empty
@@ -142,7 +131,7 @@ func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 		d.loggerAdapter.Error("Network error occurred: %v", err)
 
 		if attempt < d.config.MaxRetries {
-			d.loggerAdapter.Warn("Network error, retrying", map[string]interface{}{
+			d.loggerAdapter.Warn("Network error, retrying", map[string]any{
 				"attempt":    attempt + 1,
 				"maxRetries": d.config.MaxRetries,
 				"error":      err.Error(),
@@ -157,7 +146,7 @@ func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 			return d.sendWithRetryAttempt(events, attempt+1)
 		} else {
 			// Max retries reached for network error - re-queue and persist
-			d.loggerAdapter.Error("Network error, max retries reached", map[string]interface{}{
+			d.loggerAdapter.Error("Network error, max retries reached", map[string]any{
 				"maxRetries":  d.config.MaxRetries,
 				"eventsCount": len(events),
 				"error":       err.Error(),
@@ -186,7 +175,7 @@ func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 		return nil
 	} else if resp.Status >= 400 && resp.Status < 500 {
 		// 4xx: Client error - no retry, drop events
-		d.loggerAdapter.Warn("4xx client error, dropping events", map[string]interface{}{
+		d.loggerAdapter.Warn("4xx client error, dropping events", map[string]any{
 			"status":      resp.Status,
 			"eventsCount": len(events),
 		})
@@ -196,7 +185,7 @@ func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 	} else if resp.Status >= 500 {
 		// 5xx: Server error - retry with backoff
 		if attempt < d.config.MaxRetries {
-			d.loggerAdapter.Warn("5xx server error, retrying", map[string]interface{}{
+			d.loggerAdapter.Warn("5xx server error, retrying", map[string]any{
 				"status":     resp.Status,
 				"attempt":    attempt + 1,
 				"maxRetries": d.config.MaxRetries,
@@ -211,7 +200,7 @@ func (d *Dispatcher) sendWithRetryAttempt(events []Event, attempt int) error {
 			return d.sendWithRetryAttempt(events, attempt+1)
 		} else {
 			// 5xx: Max retries reached - re-queue and persist
-			d.loggerAdapter.Error("5xx server error, max retries reached", map[string]interface{}{
+			d.loggerAdapter.Error("5xx server error, max retries reached", map[string]any{
 				"status":      resp.Status,
 				"maxRetries":  d.config.MaxRetries,
 				"eventsCount": len(events),

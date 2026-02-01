@@ -9,10 +9,6 @@ import (
 	"github.com/Tap30/ripple-go/adapters"
 )
 
-func stringPtr(s string) *string {
-	return &s
-}
-
 func createTestConfig() ClientConfig {
 	return ClientConfig{
 		APIKey:         "test-key",
@@ -718,7 +714,7 @@ func TestFileStorageAdapter_EdgeCases(t *testing.T) {
 		adapter := adapters.NewFileStorageAdapter(filename)
 
 		// Write invalid JSON
-		err := os.WriteFile(filename, []byte("invalid json"), 0644)
+		err := os.WriteFile(filename, []byte("invalid json"), 0o644)
 		if err != nil {
 			t.Fatalf("failed to write test file: %v", err)
 		}
