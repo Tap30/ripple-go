@@ -47,18 +47,36 @@ case $RELEASE_TYPE in
         ;;
 esac
 
-# Create comment body
+# Create comment body with help section
 COMMENT_BODY="## Release Impact
 
-$MESSAGE
-
-**PR Title:** \`$PR_TITLE\`"
+$MESSAGE"
 
 if [ "$RELEASE_TYPE" != "none" ]; then
     COMMENT_BODY="$COMMENT_BODY
 
 🚀 A new release will be created when this PR is merged to main."
 fi
+
+COMMENT_BODY="$COMMENT_BODY
+
+<details>
+<summary>📋 PR Title Format Guide</summary>
+
+**Triggers releases:**
+- \`feat: description\` → Minor release (new features)
+- \`fix: description\` → Patch release (bug fixes)
+- \`feat!: description\` → Major release (breaking changes)
+- \`fix!: description\` → Major release (breaking changes)
+
+**No release:**
+- \`docs: description\` → Documentation changes
+- \`chore: description\` → Maintenance tasks
+- \`ci: description\` → CI/CD changes
+- \`test: description\` → Test changes
+- \`refactor: description\` → Code refactoring
+
+</details>"
 
 # Output for GitHub Actions
 echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
