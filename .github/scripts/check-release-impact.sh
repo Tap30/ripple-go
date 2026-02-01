@@ -53,17 +53,17 @@ read -r -d '' HELP_SECTION << 'EOF' || true
 <summary>💡 PR Title Format Guide</summary>
 
 **Triggers releases:**
-- `feat: description` → Minor release (new features)
-- `fix: description` → Patch release (bug fixes)
-- `feat!: description` → Major release (breaking changes)
-- `fix!: description` → Major release (breaking changes)
+- **feat: description** → Minor release (new features)
+- **fix: description** → Patch release (bug fixes)
+- **feat!: description** → Major release (breaking changes)
+- **fix!: description** → Major release (breaking changes)
 
 **No release:**
-- `docs: description` → Documentation changes
-- `chore: description` → Maintenance tasks
-- `ci: description` → CI/CD changes
-- `test: description` → Test changes
-- `refactor: description` → Code refactoring
+- **docs: description** → Documentation changes
+- **chore: description** → Maintenance tasks
+- **ci: description** → CI/CD changes
+- **test: description** → Test changes
+- **refactor: description** → Code refactoring
 
 </details>
 EOF

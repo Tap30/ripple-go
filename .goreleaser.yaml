@@ -17,10 +17,7 @@ builds:
   - skip: true
 
 archives:
-  - formats: ["tar.gz"]
-    format_overrides:
-      - goos: windows
-        formats: ["zip"]
+  - id: default
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
