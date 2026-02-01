@@ -50,7 +50,7 @@ esac
 # Create comment body with help section (using single quotes to preserve backticks)
 read -r -d '' HELP_SECTION << 'EOF' || true
 <details>
-<summary>📋 PR Title Format Guide</summary>
+<summary>💡 PR Title Format Guide</summary>
 
 **Triggers releases:**
 - `feat: description` → Minor release (new features)
