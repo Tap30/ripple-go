@@ -32,3 +32,14 @@ jobs:
 
       - name: "🔍 Run all checks"
         run: make check
+
+      - name: "📋 Check release impact"
+        id: release-check
+        run: |
+          ./.github/scripts/check-release-impact.sh "${{ github.event.pull_request.title }}" "${{ github.event.pull_request.number }}"
+
+      - name: "💬 Comment on PR"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./.github/scripts/post-pr-comment.sh "${{ steps.release-check.outputs.comment_body }}" "${{ github.event.pull_request.number }}"
