@@ -61,7 +61,7 @@ type MyHTTPAdapter struct {
 func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
     // your custom HTTP logic
     // e.g., using gRPC, custom retry logic, etc.
-    return &adapters.HTTPResponse{OK: true, Status: 200}, nil
+    return &adapters.HTTPResponse{Status: 200}, nil
 }
 ```
 

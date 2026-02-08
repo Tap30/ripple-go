@@ -110,7 +110,7 @@ and either merge it, request changes to it, or close it with an explanation.
 
 For a comprehensive understanding of the project architecture, features, and
 design principles, see the
-[Onboarding Documentation](https://github.com/Tap30/ripple-go/blob/main/ONBOARDING.md).
+[Agent Documentation](https://github.com/Tap30/ripple-go/blob/main/AGENTS.md).
 
 ### Running the Playground
 
