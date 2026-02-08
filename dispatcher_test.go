@@ -24,9 +24,9 @@ func (m *mockHTTPAdapter) Send(endpoint string, events []Event, headers map[stri
 		if status == 0 {
 			status = 500 // default to 500 for backward compatibility
 		}
-		return &HTTPResponse{OK: false, Status: status}, nil
+		return &HTTPResponse{Status: status}, nil
 	}
-	return &HTTPResponse{OK: true, Status: 200}, nil
+	return &HTTPResponse{Status: 200}, nil
 }
 
 type mockStorageAdapter struct {

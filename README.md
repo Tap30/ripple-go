@@ -178,7 +178,7 @@ type MyHTTPAdapter struct {
 
 func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
     // custom HTTP logic
-    return &adapters.HTTPResponse{OK: true, Status: 200}, nil
+    return &adapters.HTTPResponse{Status: 200}, nil
 }
 
 // Use custom adapter
@@ -246,7 +246,7 @@ The SDK consists of several key components:
 - **HTTP Adapter** – Network communication layer
 - **Storage Adapter** – Event persistence layer
 
-See [ONBOARDING.md](./ONBOARDING.md) for detailed architecture documentation.
+See [AGENTS.md](./AGENTS.md) for detailed architecture documentation.
 
 ## API Contract
 

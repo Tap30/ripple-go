@@ -30,7 +30,7 @@ func TestNetHTTPAdapter_Send(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !resp.OK || resp.Status != 200 {
+	if resp.Status != 200 {
 		t.Fatal("expected successful response")
 	}
 }
@@ -48,8 +48,8 @@ func TestNetHTTPAdapter_SendError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.OK {
-		t.Fatal("expected response to not be OK")
+	if resp.Status < 400 {
+		t.Fatal("expected error response")
 	}
 	if resp.Status != 500 {
 		t.Fatalf("expected status 500, got %d", resp.Status)

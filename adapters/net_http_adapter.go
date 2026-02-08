@@ -51,6 +51,6 @@ func (h *NetHTTPAdapter) Send(endpoint string, events []Event, headers map[strin
 
 	return &HTTPResponse{
 		Status: resp.StatusCode,
-		OK:     resp.StatusCode >= 200 && resp.StatusCode < 300,
+		Data:   nil,
 	}, nil
 }

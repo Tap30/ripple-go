@@ -137,7 +137,7 @@ ripple-go/
 ├── go.mod                      # Go module definition
 ├── Makefile                    # Build commands (test, fmt, lint, clean)
 ├── README.md                   # Project documentation
-├── ONBOARDING.md              # This file - complete implementation guide
+├── AGENTS.md                  # This file - complete implementation guide
 ├── adapters/
 │   ├── http_adapter.go         # HTTP adapter interface
 │   ├── net_http_adapter.go     # Default HTTP implementation
@@ -390,7 +390,6 @@ type DispatcherConfig struct {
 
 ```go
 type HTTPResponse struct {
-    OK     bool
     Status int
     Data   any
 }
@@ -512,7 +511,7 @@ type MyHTTPAdapter struct {}
 
 func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
     // custom HTTP logic (e.g., using different HTTP client)
-    return &adapters.HTTPResponse{OK: true, Status: 200}, nil
+    return &adapters.HTTPResponse{Status: 200}, nil
 }
 
 // Usage

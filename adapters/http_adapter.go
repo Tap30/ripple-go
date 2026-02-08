@@ -2,7 +2,6 @@ package adapters
 
 // HTTPResponse represents the response from an HTTP request.
 type HTTPResponse struct {
-	OK     bool
 	Status int
 	Data   any
 }
