@@ -113,14 +113,70 @@ func main() {
 type ClientConfig struct {
     APIKey         string         // Required: API authentication key
     Endpoint       string         // Required: Event collection endpoint
+    APIKeyHeader   *string        // Optional: Header name for API key (default: "X-API-Key")
     FlushInterval  time.Duration  // Optional: Default 5s
     MaxBatchSize   int            // Optional: Default 10
     MaxRetries     int            // Optional: Default 3
+    MaxBufferSize  int            // Optional: Max events in storage (0 = unlimited)
     HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
     StorageAdapter StorageAdapter // Required: Custom storage adapter
     LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter
 }
 ```
+
+### Understanding `MaxBatchSize` vs `MaxBufferSize`
+
+These two parameters serve different purposes and work together:
+
+**`MaxBatchSize` (default: 10)** - Controls **when** events are sent
+
+- Triggers immediate flush when queue reaches this size
+- Determines how many events are sent in each HTTP request
+- Smaller values = more frequent network requests
+- Larger values = fewer requests but higher latency
+
+**`MaxBufferSize` (default: 0 = unlimited)** - Controls **how many** events are stored
+
+- Limits total events persisted to storage
+- When limit is reached, oldest events are dropped (FIFO eviction)
+- Protects against unbounded storage growth
+- Useful for:
+  - Preventing disk space issues during extended offline periods
+  - Controlling memory usage in high-throughput scenarios
+  - Limiting event retention for privacy/compliance
+
+**Important**: `MaxBufferSize` should always be **greater than or equal to** `MaxBatchSize`. If `MaxBufferSize` is smaller, the batch size will never be reached and events will be dropped unnecessarily.
+
+**Examples:**
+
+```go
+// ✅ Good: Buffer is 10x batch size
+client, err := ripple.NewClient(ripple.ClientConfig{
+    MaxBatchSize:  10,
+    MaxBufferSize: 100,
+    // ...
+})
+
+// ✅ Good: Large buffer for extended offline periods
+client, err := ripple.NewClient(ripple.ClientConfig{
+    MaxBatchSize:  20,
+    MaxBufferSize: 1000,
+    // ...
+})
+
+// ❌ Bad: Buffer smaller than batch (batch will never be reached)
+client, err := ripple.NewClient(ripple.ClientConfig{
+    MaxBatchSize:  100,
+    MaxBufferSize: 50, // Events dropped before batch is full!
+    // ...
+})
+```
+
+**Behavior in different scenarios**:
+
+- **Normal operation** (`MaxBatchSize: 10, MaxBufferSize: 100`): Events flush every 10 events, buffer rarely fills
+- **Offline mode**: Buffer accumulates up to 100 events, then starts dropping oldest
+- **Misconfigured** (`MaxBatchSize: 100, MaxBufferSize: 50`): Batch never reached, events only sent via time-based flush
 
 ## API
 
@@ -224,7 +280,7 @@ func (r *RedisStorage) Clear() error {
 }
 
 // Use custom adapter
-client, err := ripple.NewClient[map[string]any, map[string]any](ripple.ClientConfig{
+client, err := ripple.NewClient(ripple.ClientConfig{
     APIKey:         "your-api-key",
     Endpoint:       "https://api.example.com/events",
     HTTPAdapter:    adapters.NewNetHTTPAdapter(),
@@ -236,15 +292,108 @@ if err != nil {
 client.Init()
 ```
 
+### Graceful Shutdown
+
+```go
+import (
+    "os"
+    "os/signal"
+    "syscall"
+    ripple "github.com/Tap30/ripple-go"
+)
+
+client, err := ripple.NewClient(config)
+if err != nil {
+    panic(err)
+}
+client.Init()
+
+// Handle graceful shutdown
+sigChan := make(chan os.Signal, 1)
+signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+
+go func() {
+    <-sigChan
+    client.Flush()
+    client.Dispose()
+    os.Exit(0)
+}()
+```
+
+## Logger Adapters
+
+| Adapter                  | Output  | Configurable | Use Case                    |
+| ------------------------ | ------- | ------------ | --------------------------- |
+| **PrintLoggerAdapter**   | Stdout  | Yes          | Development and debugging   |
+| **NoOpLoggerAdapter**    | None    | No           | Production (silent logging) |
+
+### Log Levels
+
+- `DEBUG`: Detailed debugging information
+- `INFO`: General information messages
+- `WARN`: Warning messages (default level)
+- `ERROR`: Error messages
+- `NONE`: No logging output
+
+```go
+import "github.com/Tap30/ripple-go/adapters"
+
+client, err := ripple.NewClient(ripple.ClientConfig{
+    // ... other config
+    LoggerAdapter: adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
+})
+```
+
+## Storage Adapters
+
+| Adapter                | Capacity  | Persistence | Use Case                          |
+| ---------------------- | --------- | ----------- | --------------------------------- |
+| **FileStorageAdapter** | Unlimited | Permanent   | Default, persistent event storage |
+| **NoOpStorageAdapter** | N/A       | None        | When persistence is not needed    |
+
+```go
+import "github.com/Tap30/ripple-go/adapters"
+
+// Persistent storage (default)
+fileStorage := adapters.NewFileStorageAdapter("ripple_events.json")
+
+// No persistence - events are discarded if not sent
+noopStorage := adapters.NewNoOpStorageAdapter()
+```
+
+By default, events are persisted to `ripple_events.json` in the current working directory.
+
+## Concurrency Guarantees
+
+The SDK is designed to handle concurrent operations safely:
+
+- **Thread-Safe Flush**: Multiple concurrent `Flush()` calls are automatically serialized using mutex locks
+- **Event Ordering**: FIFO order is maintained even during retry failures and concurrent operations
+- **No Event Loss**: Events tracked during flush operations are safely queued and sent in the next batch
+- **Automatic Cleanup**: Mutex locks are automatically released even if errors occur, preventing deadlocks
+
+You can safely call `Track()` and `Flush()` from multiple goroutines without worrying about race conditions.
+
+## Error Handling
+
+The SDK handles HTTP errors differently based on their type:
+
+- **2xx Success**: Events are cleared from storage
+- **4xx Client Errors**: Events are dropped (not retried or persisted) since client errors won't resolve without code changes
+- **5xx Server Errors**: Retried with exponential backoff up to `MaxRetries`, then re-queued and persisted for later retry
+- **Network Errors**: Same behavior as 5xx errors
+
 ## Architecture
 
 The SDK consists of several key components:
 
-- **Client** – Public API and context management
+- **Client** – Public API and metadata management
 - **Dispatcher** – Event batching, flushing, and retry logic
 - **Queue** – Thread-safe FIFO event queue
+- **MetadataManager** – Shared metadata management
 - **HTTP Adapter** – Network communication layer
 - **Storage Adapter** – Event persistence layer
+- **Logger Adapter** – Logging interface
 
 See [AGENTS.md](./AGENTS.md) for detailed architecture documentation.
 

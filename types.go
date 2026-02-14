@@ -89,6 +89,12 @@ type ClientConfig struct {
 	//
 	// Default: PrintLoggerAdapter with WARN level.
 	LoggerAdapter LoggerAdapter
+
+	// MaxBufferSize is the maximum number of events to persist to storage.
+	// When limit is exceeded, oldest events are evicted using FIFO policy.
+	//
+	// Optional: If not set or 0, no limit is applied.
+	MaxBufferSize int
 }
 
 type DispatcherConfig struct {
@@ -109,4 +115,8 @@ type DispatcherConfig struct {
 
 	// MaxRetries is the maximum number of retry attempts for failed requests.
 	MaxRetries int
+
+	// MaxBufferSize is the maximum number of events to persist to storage.
+	// When limit is exceeded, oldest events are evicted using FIFO policy.
+	MaxBufferSize int
 }
