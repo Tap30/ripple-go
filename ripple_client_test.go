@@ -679,7 +679,7 @@ func TestDispatcher_EdgeCases(t *testing.T) {
 		}
 
 		dispatcher := NewDispatcher(config, &mockHTTPAdapter{}, &mockStorageAdapter{}, map[string]string{})
-		dispatcher.Start()
+		dispatcher.Restore()
 		defer dispatcher.Stop()
 
 		// Try to start timer multiple times concurrently
@@ -941,7 +941,7 @@ func TestDispatcher_StopTimerIfEmpty(t *testing.T) {
 	mockStorage := &mockStorageAdapter{}
 	dispatcher := NewDispatcher(config, mockHTTP, mockStorage, map[string]string{})
 
-	dispatcher.Start()
+	dispatcher.Restore()
 	defer dispatcher.Stop()
 
 	// Add an event to start the timer

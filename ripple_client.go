@@ -108,11 +108,12 @@ func (c *Client) Init() error {
 		FlushInterval: c.config.FlushInterval,
 		MaxBatchSize:  c.config.MaxBatchSize,
 		MaxRetries:    c.config.MaxRetries,
+		MaxBufferSize: c.config.MaxBufferSize,
 	}
 
 	c.dispatcher = NewDispatcher(dispatcherConfig, c.httpAdapter, c.storageAdapter, headers)
 	c.dispatcher.SetLoggerAdapter(c.loggerAdapter)
-	err := c.dispatcher.Start()
+	err := c.dispatcher.Restore()
 	if err != nil {
 		return err
 	}

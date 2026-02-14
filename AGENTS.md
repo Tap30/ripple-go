@@ -2,7 +2,15 @@
 
 ## Recent Changes
 
-### Dynamic Rebatching in Flush (Latest)
+### Max Buffer Size Feature (Latest)
+
+- **Added MaxBufferSize configuration** - Limits the number of events persisted to storage
+- **FIFO eviction policy** - When limit is exceeded, oldest events are dropped
+- **Applied on enqueue and load** - Limit enforced when adding events and loading from storage
+- **Configuration validation** - Warns if MaxBufferSize < MaxBatchSize
+- **Matches TypeScript SDK** - Consistent behavior across all Ripple SDKs
+
+### Dynamic Rebatching in Flush
 
 - **Updated Flush logic** - Now processes all queued events in optimal batches
 - **Improved efficiency** - Clears entire queue at once, then processes in batches
@@ -102,6 +110,7 @@ type ClientConfig struct {
     FlushInterval  time.Duration  // Default: 5s
     MaxBatchSize   int            // Default: 10
     MaxRetries     int            // Default: 3
+    MaxBufferSize  int            // Optional: Max events in storage (0 = unlimited)
     HTTPAdapter    HTTPAdapter    // Required: Custom HTTP adapter
     StorageAdapter StorageAdapter // Required: Custom storage adapter
     LoggerAdapter  LoggerAdapter  // Optional: Custom logger adapter (default: PrintLoggerAdapter with WARN level)
