@@ -17,7 +17,7 @@ for browsers.
 
 ## Features
 
-- **Zero Dependencies** – Built entirely with Go standard library
+- **Zero Runtime Dependencies** – Built entirely with Go standard library
 - **Thread-Safe** – Concurrent event tracking with mutex protection
 - **Automatic Batching** – Efficient event grouping with dynamic rebatching for optimal network usage
 - **Smart Retry Logic** – Intelligent retry behavior based on HTTP status codes:

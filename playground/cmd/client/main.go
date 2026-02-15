@@ -11,17 +11,16 @@ import (
 	"github.com/Tap30/ripple-go/adapters"
 )
 
-func stringPtr(s string) *string {
-	return &s
-}
-
 var client *ripple.Client
 var scanner *bufio.Scanner
 var metadataCounter int
 var eventCounter int
+var httpAdapter *ContextAwareHTTPAdapter
 
 func main() {
 	scanner = bufio.NewScanner(os.Stdin)
+
+	httpAdapter = NewContextAwareHTTPAdapter(10 * time.Second) // Default 10s timeout
 
 	var err error
 	client, err = ripple.NewClient(ripple.ClientConfig{
@@ -30,7 +29,7 @@ func main() {
 		FlushInterval:  5 * time.Second,
 		MaxBatchSize:   5,
 		MaxRetries:     3,
-		HTTPAdapter:    adapters.NewNetHTTPAdapter(),
+		HTTPAdapter:    httpAdapter,
 		StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
 		LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
 	})
@@ -47,6 +46,7 @@ func main() {
 
 	fmt.Println("🎯 Ripple Interactive Client")
 	fmt.Println("Connected to: http://localhost:3000/events")
+	fmt.Println("⏱️  HTTP Timeout: 10s (configurable)")
 	fmt.Println()
 
 	for {
@@ -77,8 +77,12 @@ func main() {
 		case "11":
 			testInvalidEndpoint()
 		case "12":
-			disposeClient()
+			setHTTPTimeout()
 		case "13":
+			testTimeoutScenario()
+		case "14":
+			disposeClient()
+		case "15":
 			fmt.Println("👋 Goodbye!")
 			// Persist events to storage without flushing to server
 			client.DisposeWithoutFlush()
@@ -110,9 +114,13 @@ func showMenu() {
 	fmt.Println("10. Test Retry Logic (Error Event)")
 	fmt.Println("11. Test Invalid Endpoint")
 	fmt.Println()
+	fmt.Println("⏱️  Context & Timeout Control")
+	fmt.Println("12. Set HTTP Timeout")
+	fmt.Println("13. Test Timeout Scenario")
+	fmt.Println()
 	fmt.Println("🔄 Lifecycle Management")
-	fmt.Println("12. Dispose Client")
-	fmt.Println("13. Exit")
+	fmt.Println("14. Dispose Client")
+	fmt.Println("15. Exit")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }
 
@@ -300,4 +308,36 @@ func flush() {
 	fmt.Println("\n🔄 Flushing events...")
 	client.Flush()
 	fmt.Println("✅ Events flushed\n")
+}
+
+func setHTTPTimeout() {
+	fmt.Println("\n⏱️  Set HTTP Timeout")
+	fmt.Println("Current timeout: ", httpAdapter.timeout)
+	input := readInput("Enter timeout in seconds (e.g., 5): ")
+
+	var seconds int
+	if _, err := fmt.Sscanf(input, "%d", &seconds); err != nil {
+		fmt.Printf("❌ Invalid input: %v\n\n", err)
+		return
+	}
+
+	httpAdapter.SetTimeout(time.Duration(seconds) * time.Second)
+	fmt.Printf("✅ HTTP timeout set to %d seconds\n\n", seconds)
+}
+
+func testTimeoutScenario() {
+	fmt.Println("\n⏱️  Test Timeout Scenario")
+	fmt.Println("Setting timeout to 1ms to force timeout...")
+
+	originalTimeout := httpAdapter.timeout
+	httpAdapter.SetTimeout(1 * time.Millisecond)
+
+	client.Track("timeout_test", map[string]any{"shouldTimeout": true})
+	client.Flush()
+
+	fmt.Println("✅ Timeout test completed (check logs for timeout errors)")
+
+	// Restore original timeout
+	httpAdapter.SetTimeout(originalTimeout)
+	fmt.Printf("✅ Restored timeout to %v\n\n", originalTimeout)
 }
