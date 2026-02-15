@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -24,6 +25,11 @@ func NewNetHTTPAdapter() HTTPAdapter {
 
 // Send sends events to the specified endpoint with the given headers.
 func (h *NetHTTPAdapter) Send(endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error) {
+	return h.SendWithContext(context.Background(), endpoint, events, headers)
+}
+
+// SendWithContext sends events to the specified endpoint with context support.
+func (h *NetHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error) {
 	payload := map[string]any{
 		"events": events,
 	}
@@ -33,7 +39,7 @@ func (h *NetHTTPAdapter) Send(endpoint string, events []Event, headers map[strin
 		return nil, fmt.Errorf("failed to marshal events: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
