@@ -33,6 +33,8 @@ type (
 	LogLevel = adapters.LogLevel
 )
 
+// HTTPError represents an HTTP error response.
+// Can be used by custom HTTPAdapter implementations to wrap HTTP errors.
 type HTTPError struct {
 	Status int
 }
@@ -109,6 +111,10 @@ type DispatcherConfig struct {
 
 	// FlushInterval controls how often queued events are flushed.
 	FlushInterval time.Duration
+
+	// FlushTimeout is the maximum time allowed for a flush operation.
+	// If zero, no timeout is applied.
+	FlushTimeout time.Duration
 
 	// MaxBatchSize is the maximum number of events per batch.
 	MaxBatchSize int

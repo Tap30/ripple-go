@@ -994,3 +994,41 @@ func TestClient_InitTwice(t *testing.T) {
 		t.Errorf("second Init should return nil, got: %v", err)
 	}
 }
+
+func TestClient_StorageAdapterFailures(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{}
+	storageAdapter := &mockStorageAdapter{err: errors.New("storage error")}
+
+	client, err := NewClient(ClientConfig{
+		APIKey:         "test-key",
+		Endpoint:       "https://api.example.com",
+		FlushInterval:  100 * time.Millisecond,
+		MaxBatchSize:   10,
+		MaxRetries:     3,
+		MaxBufferSize:  100,
+		HTTPAdapter:    httpAdapter,
+		StorageAdapter: storageAdapter,
+	})
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	err = client.Init()
+	if err == nil {
+		t.Error("expected Init to fail with storage error")
+	}
+
+	// Test with working storage
+	storageAdapter.err = nil
+	if err := client.Init(); err != nil {
+		t.Fatalf("Init failed: %v", err)
+	}
+
+	// Test Save failure during track - should not fail Track itself
+	storageAdapter.err = errors.New("save error")
+	if err := client.Track("test_event", nil, nil); err != nil {
+		t.Errorf("Track should not fail even if storage fails: %v", err)
+	}
+
+	client.Dispose()
+}

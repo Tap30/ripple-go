@@ -1,20 +1,25 @@
 package ripple
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/Tap30/ripple-go/adapters"
 )
 
+const (
+	maxPayloadSize  = 1 * 1024 * 1024 // 1MB
+	maxMetadataSize = 64 * 1024       // 64KB
+	maxEventSize    = 2 * 1024 * 1024 // 2MB
+)
+
 var (
+	// serverPlatform is a shared pointer used by all events.
+	// All server-side events reference the same Platform instance.
 	serverPlatform = &Platform{Type: "server"}
-	eventPool      = sync.Pool{
-		New: func() any {
-			return &Event{}
-		},
-	}
 )
 
 type Client struct {
@@ -132,6 +137,11 @@ func (c *Client) SetMetadata(key string, value any) error {
 		return errors.New("metadata key cannot exceed 255 characters")
 	}
 
+	// Validate that value is JSON-serializable
+	if _, err := json.Marshal(value); err != nil {
+		return fmt.Errorf("metadata value must be JSON-serializable: %w", err)
+	}
+
 	c.metadataManager.Set(key, value)
 	return nil
 }
@@ -184,6 +194,13 @@ func (c *Client) Track(name string, args ...any) error {
 		} else {
 			return errors.New("payload must be of type map[string]any or nil")
 		}
+
+		// Validate payload size
+		if payloadBytes, err := json.Marshal(eventPayload); err == nil {
+			if len(payloadBytes) > maxPayloadSize {
+				return fmt.Errorf("payload size (%d bytes) exceeds maximum allowed (%d bytes)", len(payloadBytes), maxPayloadSize)
+			}
+		}
 	}
 
 	// Merge shared metadata with event-specific metadata
@@ -197,6 +214,10 @@ func (c *Client) Track(name string, args ...any) error {
 
 	// Override with event-specific metadata
 	for k, v := range metadata {
+		// Validate that value is JSON-serializable
+		if _, err := json.Marshal(v); err != nil {
+			return fmt.Errorf("metadata value for key '%s' must be JSON-serializable: %w", k, err)
+		}
 		finalMetadata[k] = v
 	}
 
@@ -204,10 +225,17 @@ func (c *Client) Track(name string, args ...any) error {
 	var eventMetadata map[string]any
 	if len(finalMetadata) > 0 {
 		eventMetadata = finalMetadata
+
+		// Validate metadata size
+		if metadataBytes, err := json.Marshal(eventMetadata); err == nil {
+			if len(metadataBytes) > maxMetadataSize {
+				return fmt.Errorf("metadata size (%d bytes) exceeds maximum allowed (%d bytes)", len(metadataBytes), maxMetadataSize)
+			}
+		}
 	}
+
 	now := time.Now().UnixMilli()
-	event := eventPool.Get().(*Event)
-	*event = Event{
+	event := Event{
 		Name:      name,
 		Payload:   eventPayload,
 		Metadata:  eventMetadata,
@@ -216,9 +244,15 @@ func (c *Client) Track(name string, args ...any) error {
 		Platform:  serverPlatform,
 	}
 
+	// Validate total event size
+	if eventBytes, err := json.Marshal(event); err == nil {
+		if len(eventBytes) > maxEventSize {
+			return fmt.Errorf("event size (%d bytes) exceeds maximum allowed (%d bytes)", len(eventBytes), maxEventSize)
+		}
+	}
+
 	c.loggerAdapter.Debug("Tracking event: %s", name)
-	c.dispatcher.Enqueue(*event)
-	eventPool.Put(event)
+	c.dispatcher.Enqueue(event)
 	return nil
 }
 
@@ -236,7 +270,9 @@ func (c *Client) Flush() {
 	c.dispatcher.Flush()
 }
 
-func (c *Client) Dispose() error {
+// Close stops the client and flushes all events to the server.
+// This is the idiomatic Go method for cleanup. Use this instead of Dispose().
+func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -244,14 +280,20 @@ func (c *Client) Dispose() error {
 		return nil
 	}
 
-	c.loggerAdapter.Info("Disposing client")
+	c.loggerAdapter.Info("Closing client")
 	err := c.dispatcher.Stop()
 	c.initialized = false
 	return err
 }
 
-// DisposeWithoutFlush stops the client and persists events to storage without flushing to server
-func (c *Client) DisposeWithoutFlush() error {
+// Dispose stops the client and flushes all events to the server.
+// Deprecated: Use Close() instead for idiomatic Go cleanup.
+func (c *Client) Dispose() error {
+	return c.Close()
+}
+
+// CloseWithoutFlush stops the client and persists events to storage without flushing to server.
+func (c *Client) CloseWithoutFlush() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -259,8 +301,14 @@ func (c *Client) DisposeWithoutFlush() error {
 		return nil
 	}
 
-	c.loggerAdapter.Info("Disposing client without flush")
+	c.loggerAdapter.Info("Closing client without flush")
 	err := c.dispatcher.StopWithoutFlush()
 	c.initialized = false
 	return err
+}
+
+// DisposeWithoutFlush stops the client and persists events to storage without flushing to server.
+// Deprecated: Use CloseWithoutFlush() instead for idiomatic Go cleanup.
+func (c *Client) DisposeWithoutFlush() error {
+	return c.CloseWithoutFlush()
 }

@@ -57,12 +57,6 @@
 - Libraries should never panic as it crashes the entire application and can't be handled by users
 - Configuration validation errors are now properly returnable and handleable
 
-### Go Version Upgrade
-
-- Upgraded from Go 1.23 to Go 1.25
-- Replaced manual `wg.Add(1)` + `go func()` + `defer wg.Done()` with cleaner `wg.Go()` method
-- Reduces boilerplate code and eliminates WaitGroup management errors
-
 ## Project Overview
 
 Ripple Go is a high-performance, scalable, and fault-tolerant event tracking SDK implemented as a single Go package. It provides reliable event delivery, batching, retries, persistence, and graceful shutdown for server-side applications.
@@ -961,9 +955,3 @@ The SDK follows a framework-agnostic design and API contract defined in the main
 - Changed `NewClient()` to return `(*Client, error)` instead of panicking on invalid configuration
 - Libraries should never panic as it crashes the entire application and can't be handled by users
 - Configuration validation errors are now properly returnable and handleable
-
-### Go Version Upgrade
-
-- Upgraded from Go 1.23 to Go 1.25
-- Replaced manual `wg.Add(1)` + `go func()` + `defer wg.Done()` with cleaner `wg.Go()` method
-- Reduces boilerplate code and eliminates WaitGroup management errors

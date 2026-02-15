@@ -37,5 +37,6 @@ error_events.json
 # Playground binaries
 playground/client
 playground/server
+ai-ctx
 # Added by goreleaser init:
 dist/
