@@ -84,6 +84,19 @@ func TestClient_ConfigValidation(t *testing.T) {
 		}
 	})
 
+	t.Run("should return error for FlushInterval less than 1ms", func(t *testing.T) {
+		_, err := NewClient(ClientConfig{
+			APIKey:         "test-key",
+			Endpoint:       "http://test.com",
+			HTTPAdapter:    &mockHTTPAdapter{},
+			StorageAdapter: &mockStorageAdapter{},
+			FlushInterval:  500 * time.Nanosecond,
+		})
+		if err == nil {
+			t.Fatal("expected error for FlushInterval < 1ms")
+		}
+	})
+
 	t.Run("should return error for negative MaxBatchSize", func(t *testing.T) {
 		_, err := NewClient(ClientConfig{
 			APIKey:         "test-key",
@@ -376,6 +389,27 @@ func TestClient_InitEdgeCases(t *testing.T) {
 		}
 	})
 
+	t.Run("should handle concurrent init calls safely", func(t *testing.T) {
+		client := createTestClient()
+		defer client.Dispose()
+
+		done := make(chan struct{})
+		for i := 0; i < 10; i++ {
+			go func() {
+				client.Init()
+				done <- struct{}{}
+			}()
+		}
+
+		for i := 0; i < 10; i++ {
+			<-done
+		}
+
+		if !client.initialized {
+			t.Fatal("expected client to be initialized")
+		}
+	})
+
 	t.Run("should use provided LoggerAdapter", func(t *testing.T) {
 		config := createTestConfig()
 		customLogger := adapters.NewNoOpLoggerAdapter()
@@ -439,6 +473,21 @@ func TestClient_TrackWithInvalidPayload(t *testing.T) {
 	err := client.Track("test_event", "invalid_payload")
 	if err == nil {
 		t.Error("expected error for invalid payload type")
+	}
+}
+
+func TestClient_TrackWithInvalidMetadata(t *testing.T) {
+	client := createTestClient()
+
+	if err := client.Init(); err != nil {
+		t.Fatalf("failed to init: %v", err)
+	}
+	defer client.Dispose()
+
+	// Valid payload, invalid metadata type (should be silently ignored)
+	err := client.Track("test_event", map[string]any{"key": "value"}, "invalid_metadata")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
 
@@ -627,4 +676,20 @@ func TestFileStorageAdapter_EdgeCases(t *testing.T) {
 			t.Fatal("expected nil events on error")
 		}
 	})
+}
+
+func TestClient_Close(t *testing.T) {
+	client, _ := NewClient(ClientConfig{
+		APIKey:         "test-key",
+		Endpoint:       "http://localhost:8080",
+		HTTPAdapter:    &mockHTTPAdapter{},
+		StorageAdapter: &mockStorageAdapter{},
+	})
+
+	client.Init()
+	client.Close()
+
+	if !client.disposed {
+		t.Error("Close should dispose the client")
+	}
 }

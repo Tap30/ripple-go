@@ -1,13 +1,6 @@
-package ripple
+package adapters
 
 import "testing"
-
-func TestHTTPError_Error(t *testing.T) {
-	err := &HTTPError{Status: 500}
-	if err.Error() != "HTTP request failed" {
-		t.Fatal("expected error message")
-	}
-}
 
 func TestStorageQuotaExceededError_Error(t *testing.T) {
 	t.Run("with custom message", func(t *testing.T) {

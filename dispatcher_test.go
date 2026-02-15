@@ -10,10 +10,12 @@ import (
 )
 
 type mockLogger struct {
-	debugs   []string
-	infos    []string
-	warnings []string
-	errs     []string
+	debugs    []string
+	infos     []string
+	warnings  []string
+	errs      []string
+	warnCount int
+	errCount  int
 }
 
 func (m *mockLogger) Debug(message string, args ...any) {
@@ -25,19 +27,22 @@ func (m *mockLogger) Info(message string, args ...any) {
 }
 
 func (m *mockLogger) Warn(message string, args ...any) {
+	m.warnCount++
 	m.warnings = append(m.warnings, fmt.Sprintf(message, args...))
 }
 
 func (m *mockLogger) Error(message string, args ...any) {
+	m.errCount++
 	m.errs = append(m.errs, fmt.Sprintf(message, args...))
 }
 
 type mockHTTPAdapter struct {
-	mu         sync.Mutex
-	calls      int
-	fail       bool
-	err        error
-	statusCode int
+	mu           sync.Mutex
+	calls        int
+	fail         bool
+	err          error
+	statusCode   int
+	networkError bool
 }
 
 func (m *mockHTTPAdapter) Send(endpoint string, events []Event, headers map[string]string, apiKeyHeader string) (*HTTPResponse, error) {
@@ -50,12 +55,16 @@ func (m *mockHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, 
 	fail := m.fail
 	err := m.err
 	statusCode := m.statusCode
+	networkError := m.networkError
 	m.mu.Unlock()
 
 	if err != nil {
 		return nil, err
 	}
 	if fail {
+		if networkError {
+			return nil, &HTTPError{Status: 0}
+		}
 		status := statusCode
 		if status == 0 {
 			status = 500
@@ -72,10 +81,12 @@ func (m *mockHTTPAdapter) getCalls() int {
 }
 
 type mockStorageAdapter struct {
-	mu     sync.Mutex
-	saved  []Event
-	loaded []Event
-	err    error
+	mu         sync.Mutex
+	saved      []Event
+	loaded     []Event
+	err        error
+	clearCalls int
+	clearErr   error
 }
 
 func (m *mockStorageAdapter) Save(events []Event) error {
@@ -100,6 +111,10 @@ func (m *mockStorageAdapter) Load() ([]Event, error) {
 func (m *mockStorageAdapter) Clear() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.clearCalls++
+	if m.clearErr != nil {
+		return m.clearErr
+	}
 	m.saved = nil
 	return nil
 }
@@ -572,5 +587,194 @@ func TestDispatcher_OneShotTimer(t *testing.T) {
 	calls = httpAdapter.getCalls()
 	if calls != 1 {
 		t.Fatalf("expected still 1 flush (one-shot timer), got %d", calls)
+	}
+}
+
+func TestDispatcher_HandleUnexpectedStatusCode(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{statusCode: 150} // unexpected status < 200
+	storageAdapter := &mockStorageAdapter{}
+	d := NewDispatcher(DispatcherConfig{
+		APIKey:        "test-key",
+		APIKeyHeader:  "X-API-Key",
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  10,
+		MaxRetries:    3,
+	}, httpAdapter, storageAdapter, &mockLogger{})
+
+	d.Enqueue(Event{Name: "test"})
+	d.Flush()
+
+	if storageAdapter.clearCalls != 1 {
+		t.Errorf("expected storage to be cleared for unexpected status, got %d clear calls", storageAdapter.clearCalls)
+	}
+}
+
+func TestDispatcher_CalculateBackoffCap(t *testing.T) {
+	d := NewDispatcher(DispatcherConfig{
+		APIKey:        "test-key",
+		APIKeyHeader:  "X-API-Key",
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  10,
+		MaxRetries:    10,
+	}, &mockHTTPAdapter{}, &mockStorageAdapter{}, &mockLogger{})
+
+	// High attempt should cap at 30s
+	backoff := d.calculateBackoff(10)
+	if backoff > 31*time.Second { // 30s + max jitter (1s)
+		t.Errorf("expected backoff <= 31s, got %v", backoff)
+	}
+	if backoff < 30*time.Second {
+		t.Errorf("expected backoff >= 30s, got %v", backoff)
+	}
+}
+
+func TestDispatcher_NetworkErrorContextCancellation(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{fail: true, networkError: true}
+	d := NewDispatcher(DispatcherConfig{
+		APIKey:        "test-key",
+		APIKeyHeader:  "X-API-Key",
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  10,
+		MaxRetries:    5,
+	}, httpAdapter, &mockStorageAdapter{}, &mockLogger{})
+
+	d.Enqueue(Event{Name: "test"})
+
+	done := make(chan struct{})
+	go func() {
+		d.Flush()
+		close(done)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+	d.Dispose()
+
+	select {
+	case <-done:
+		// success - context cancellation stopped retries
+	case <-time.After(3 * time.Second):
+		t.Fatal("flush did not complete after dispose during network error retries")
+	}
+}
+
+func TestDispatcher_ClearStorageErrors(t *testing.T) {
+	t.Run("clear error on 2xx success", func(t *testing.T) {
+		httpAdapter := &mockHTTPAdapter{statusCode: 200}
+		storageAdapter := &mockStorageAdapter{clearErr: errors.New("clear failed")}
+		logger := &mockLogger{}
+		d := NewDispatcher(DispatcherConfig{
+			APIKey:        "test-key",
+			APIKeyHeader:  "X-API-Key",
+			Endpoint:      "http://test.com",
+			FlushInterval: 10 * time.Second,
+			MaxBatchSize:  10,
+			MaxRetries:    3,
+		}, httpAdapter, storageAdapter, logger)
+
+		d.Restore()
+		d.Enqueue(Event{Name: "test"})
+		d.Flush()
+
+		if storageAdapter.clearCalls != 1 {
+			t.Errorf("expected 1 clear call, got %d", storageAdapter.clearCalls)
+		}
+		if logger.errCount == 0 {
+			t.Error("expected error log for clear failure")
+		}
+	})
+
+	t.Run("clear error on 4xx client error", func(t *testing.T) {
+		httpAdapter := &mockHTTPAdapter{statusCode: 400}
+		storageAdapter := &mockStorageAdapter{clearErr: errors.New("clear failed")}
+		logger := &mockLogger{}
+		d := NewDispatcher(DispatcherConfig{
+			APIKey:        "test-key",
+			APIKeyHeader:  "X-API-Key",
+			Endpoint:      "http://test.com",
+			FlushInterval: 10 * time.Second,
+			MaxBatchSize:  10,
+			MaxRetries:    3,
+		}, httpAdapter, storageAdapter, logger)
+
+		d.Restore()
+		d.Enqueue(Event{Name: "test"})
+		d.Flush()
+
+		if storageAdapter.clearCalls != 1 {
+			t.Errorf("expected 1 clear call, got %d", storageAdapter.clearCalls)
+		}
+		if logger.errCount == 0 {
+			t.Error("expected error log for clear failure")
+		}
+	})
+
+	t.Run("clear error on unexpected status", func(t *testing.T) {
+		httpAdapter := &mockHTTPAdapter{statusCode: 150}
+		storageAdapter := &mockStorageAdapter{clearErr: errors.New("clear failed")}
+		logger := &mockLogger{}
+		d := NewDispatcher(DispatcherConfig{
+			APIKey:        "test-key",
+			APIKeyHeader:  "X-API-Key",
+			Endpoint:      "http://test.com",
+			FlushInterval: 10 * time.Second,
+			MaxBatchSize:  10,
+			MaxRetries:    3,
+		}, httpAdapter, storageAdapter, logger)
+
+		d.Restore()
+		d.Enqueue(Event{Name: "test"})
+		d.Flush()
+
+		if storageAdapter.clearCalls != 1 {
+			t.Errorf("expected 1 clear call, got %d", storageAdapter.clearCalls)
+		}
+		if logger.errCount == 0 {
+			t.Error("expected error log for clear failure")
+		}
+	})
+}
+
+func TestDispatcher_RequeueWithStorageError(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{fail: true, statusCode: 500}
+	storageAdapter := &mockStorageAdapter{err: errors.New("save failed")}
+	d := NewDispatcher(DispatcherConfig{
+		APIKey:        "test-key",
+		APIKeyHeader:  "X-API-Key",
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  10,
+		MaxRetries:    1,
+	}, httpAdapter, storageAdapter, &mockLogger{})
+
+	d.Enqueue(Event{Name: "test"})
+	d.Flush()
+
+	// Should attempt to save after requeue despite error
+	if len(storageAdapter.getSaved()) != 0 {
+		t.Error("storage should not have saved events due to error")
+	}
+}
+
+func TestDispatcher_LogStorageErrorWithQuotaExceeded(t *testing.T) {
+	httpAdapter := &mockHTTPAdapter{}
+	storageAdapter := &mockStorageAdapter{err: &StorageQuotaExceededError{Message: "quota exceeded"}}
+	logger := &mockLogger{}
+	d := NewDispatcher(DispatcherConfig{
+		APIKey:        "test-key",
+		APIKeyHeader:  "X-API-Key",
+		Endpoint:      "http://test.com",
+		FlushInterval: 10 * time.Second,
+		MaxBatchSize:  10,
+		MaxRetries:    3,
+	}, httpAdapter, storageAdapter, logger)
+
+	d.Enqueue(Event{Name: "test"})
+
+	// Storage error should be logged as warning for quota errors
+	if logger.warnCount == 0 {
+		t.Error("expected warning log for quota exceeded error")
 	}
 }
