@@ -26,7 +26,7 @@ func TestNetHTTPAdapter_Send(t *testing.T) {
 	events := []Event{{Name: "test"}}
 	headers := map[string]string{"Authorization": "Bearer test-key"}
 
-	resp, err := adapter.Send(server.URL, events, headers)
+	resp, err := adapter.Send(server.URL, events, headers, "Authorization")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestNetHTTPAdapter_SendError(t *testing.T) {
 	adapter := NewNetHTTPAdapter()
 	events := []Event{{Name: "test"}}
 
-	resp, err := adapter.Send(server.URL, events, nil)
+	resp, err := adapter.Send(server.URL, events, nil, "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestNetHTTPAdapter_SendInvalidURL(t *testing.T) {
 	adapter := NewNetHTTPAdapter()
 	events := []Event{{Name: "test"}}
 
-	_, err := adapter.Send("http://invalid-url-that-does-not-exist-12345.com", events, nil)
+	_, err := adapter.Send("http://invalid-url-that-does-not-exist-12345.com", events, nil, "")
 	if err == nil {
 		t.Fatal("expected error for invalid URL")
 	}
@@ -73,7 +73,7 @@ func TestNetHTTPAdapter_SendMarshalError(t *testing.T) {
 		Payload: map[string]any{"invalid": make(chan int)},
 	}}
 
-	_, err := adapter.Send("http://test.com", events, nil)
+	_, err := adapter.Send("http://test.com", events, nil, "")
 	if err == nil {
 		t.Fatal("expected error for unmarshalable data")
 	}
@@ -83,7 +83,7 @@ func TestNetHTTPAdapter_SendInvalidMethod(t *testing.T) {
 	adapter := NewNetHTTPAdapter()
 	events := []Event{{Name: "test"}}
 
-	_, err := adapter.Send("ht!tp://invalid", events, nil)
+	_, err := adapter.Send("ht!tp://invalid", events, nil, "")
 	if err == nil {
 		t.Fatal("expected error for invalid URL")
 	}

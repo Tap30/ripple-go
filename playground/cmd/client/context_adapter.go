@@ -20,17 +20,17 @@ func NewContextAwareHTTPAdapter(timeout time.Duration) *ContextAwareHTTPAdapter 
 	}
 }
 
-func (c *ContextAwareHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
-	return c.adapter.Send(endpoint, events, headers)
+func (c *ContextAwareHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string, apiKeyHeader string) (*adapters.HTTPResponse, error) {
+	return c.adapter.Send(endpoint, events, headers, apiKeyHeader)
 }
 
-func (c *ContextAwareHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
+func (c *ContextAwareHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []adapters.Event, headers map[string]string, apiKeyHeader string) (*adapters.HTTPResponse, error) {
 	if c.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, c.timeout)
 		defer cancel()
 	}
-	return c.adapter.SendWithContext(ctx, endpoint, events, headers)
+	return c.adapter.SendWithContext(ctx, endpoint, events, headers, apiKeyHeader)
 }
 
 func (c *ContextAwareHTTPAdapter) SetTimeout(timeout time.Duration) {

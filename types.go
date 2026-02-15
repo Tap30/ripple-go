@@ -31,6 +31,9 @@ type (
 
 	// LogLevel represents the severity level for logging.
 	LogLevel = adapters.LogLevel
+
+	// StorageQuotaExceededError indicates that the storage quota has been exceeded.
+	StorageQuotaExceededError = adapters.StorageQuotaExceededError
 )
 
 // HTTPError represents an HTTP error response.
@@ -111,10 +114,6 @@ type DispatcherConfig struct {
 
 	// FlushInterval controls how often queued events are flushed.
 	FlushInterval time.Duration
-
-	// FlushTimeout is the maximum time allowed for a flush operation.
-	// If zero, no timeout is applied.
-	FlushTimeout time.Duration
 
 	// MaxBatchSize is the maximum number of events per batch.
 	MaxBatchSize int

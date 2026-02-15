@@ -24,12 +24,12 @@ func NewNetHTTPAdapter() HTTPAdapter {
 }
 
 // Send sends events to the specified endpoint with the given headers.
-func (h *NetHTTPAdapter) Send(endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error) {
-	return h.SendWithContext(context.Background(), endpoint, events, headers)
+func (h *NetHTTPAdapter) Send(endpoint string, events []Event, headers map[string]string, apiKeyHeader string) (*HTTPResponse, error) {
+	return h.SendWithContext(context.Background(), endpoint, events, headers, apiKeyHeader)
 }
 
 // SendWithContext sends events to the specified endpoint with context support.
-func (h *NetHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error) {
+func (h *NetHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string, apiKeyHeader string) (*HTTPResponse, error) {
 	payload := map[string]any{
 		"events": events,
 	}

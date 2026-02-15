@@ -1,7 +1,6 @@
 package ripple
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -10,15 +9,8 @@ import (
 	"github.com/Tap30/ripple-go/adapters"
 )
 
-const (
-	maxPayloadSize  = 1 * 1024 * 1024 // 1MB
-	maxMetadataSize = 64 * 1024       // 64KB
-	maxEventSize    = 2 * 1024 * 1024 // 2MB
-)
-
 var (
 	// serverPlatform is a shared pointer used by all events.
-	// All server-side events reference the same Platform instance.
 	serverPlatform = &Platform{Type: "server"}
 )
 
@@ -26,14 +18,13 @@ type Client struct {
 	config          ClientConfig
 	metadataManager *MetadataManager
 	dispatcher      *Dispatcher
-	httpAdapter     HTTPAdapter
-	storageAdapter  StorageAdapter
 	loggerAdapter   LoggerAdapter
 	initialized     bool
-	mu              sync.RWMutex
+	disposed        bool
+	initMu          sync.Mutex
 }
 
-// NewClient creates a new type-safe Ripple client
+// NewClient creates a new Ripple client
 func NewClient(config ClientConfig) (*Client, error) {
 	// Validate required fields
 	if config.APIKey == "" {
@@ -49,101 +40,89 @@ func NewClient(config ClientConfig) (*Client, error) {
 		return nil, errors.New("StorageAdapter is required")
 	}
 
+	// Validate numeric config values
+	if config.FlushInterval < 0 || (config.FlushInterval > 0 && config.FlushInterval < time.Millisecond) {
+		return nil, errors.New("FlushInterval must be a positive duration")
+	}
+	if config.MaxBatchSize < 0 {
+		return nil, errors.New("MaxBatchSize must be a positive number")
+	}
+	if config.MaxRetries < 0 {
+		return nil, errors.New("MaxRetries must be a non-negative number")
+	}
+	if config.MaxBufferSize < 0 {
+		return nil, errors.New("MaxBufferSize must be a positive number")
+	}
+
 	// Set defaults
 	if config.FlushInterval == 0 {
 		config.FlushInterval = 5 * time.Second
 	}
-	if config.MaxBatchSize <= 0 {
+	if config.MaxBatchSize == 0 {
 		config.MaxBatchSize = 10
 	}
 	if config.MaxRetries == 0 {
 		config.MaxRetries = 3
 	}
 
+	apiKeyHeader := "X-API-Key"
+	if config.APIKeyHeader != nil {
+		apiKeyHeader = *config.APIKeyHeader
+	}
+
+	loggerAdapter := LoggerAdapter(adapters.NewPrintLoggerAdapter(adapters.LogLevelWarn))
+	if config.LoggerAdapter != nil {
+		loggerAdapter = config.LoggerAdapter
+	}
+
+	dispatcherConfig := DispatcherConfig{
+		APIKey:        config.APIKey,
+		APIKeyHeader:  apiKeyHeader,
+		Endpoint:      config.Endpoint,
+		FlushInterval: config.FlushInterval,
+		MaxBatchSize:  config.MaxBatchSize,
+		MaxRetries:    config.MaxRetries,
+		MaxBufferSize: config.MaxBufferSize,
+	}
+
+	// Validate buffer vs batch
+	if config.MaxBufferSize > 0 && config.MaxBufferSize < config.MaxBatchSize {
+		return nil, fmt.Errorf("MaxBufferSize (%d) must be greater than or equal to MaxBatchSize (%d)", config.MaxBufferSize, config.MaxBatchSize)
+	}
+
+	dispatcher := NewDispatcher(dispatcherConfig, config.HTTPAdapter, config.StorageAdapter, loggerAdapter)
+
 	client := &Client{
 		config:          config,
 		metadataManager: NewMetadataManager(),
-		httpAdapter:     config.HTTPAdapter,
-		storageAdapter:  config.StorageAdapter,
-	}
-
-	// Use provided logger or default
-	if config.LoggerAdapter != nil {
-		client.loggerAdapter = config.LoggerAdapter
-	} else {
-		client.loggerAdapter = adapters.NewPrintLoggerAdapter(adapters.LogLevelWarn)
+		dispatcher:      dispatcher,
+		loggerAdapter:   loggerAdapter,
 	}
 
 	return client, nil
 }
 
-// SetHTTPAdapter sets a custom HTTP adapter.
-// Must be called before Init().
-func (c *Client) SetHTTPAdapter(adapter HTTPAdapter) {
-	c.httpAdapter = adapter
-}
-
-// SetStorageAdapter sets a custom storage adapter.
-// Must be called before Init().
-func (c *Client) SetStorageAdapter(adapter StorageAdapter) {
-	c.storageAdapter = adapter
-}
-
 func (c *Client) Init() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	if c.initialized {
+		return nil
+	}
+
+	c.initMu.Lock()
+	defer c.initMu.Unlock()
 
 	if c.initialized {
 		return nil
 	}
 
-	apiKeyHeader := "X-API-Key"
-	if c.config.APIKeyHeader != nil {
-		apiKeyHeader = *c.config.APIKeyHeader
-	}
-
-	headers := map[string]string{
-		apiKeyHeader: c.config.APIKey,
-	}
-
-	dispatcherConfig := DispatcherConfig{
-		APIKey:        c.config.APIKey,
-		APIKeyHeader:  apiKeyHeader,
-		Endpoint:      c.config.Endpoint,
-		FlushInterval: c.config.FlushInterval,
-		MaxBatchSize:  c.config.MaxBatchSize,
-		MaxRetries:    c.config.MaxRetries,
-		MaxBufferSize: c.config.MaxBufferSize,
-	}
-
-	c.dispatcher = NewDispatcher(dispatcherConfig, c.httpAdapter, c.storageAdapter, headers)
-	c.dispatcher.SetLoggerAdapter(c.loggerAdapter)
-	err := c.dispatcher.Restore()
-	if err != nil {
-		return err
-	}
-
+	c.dispatcher.Restore()
+	c.disposed = false
 	c.initialized = true
 	c.loggerAdapter.Info("Client initialized successfully")
 	return nil
 }
 
-func (c *Client) SetMetadata(key string, value any) error {
-	keyLen := len(key)
-	if keyLen == 0 {
-		return errors.New("metadata key cannot be empty")
-	}
-	if keyLen > 255 {
-		return errors.New("metadata key cannot exceed 255 characters")
-	}
-
-	// Validate that value is JSON-serializable
-	if _, err := json.Marshal(value); err != nil {
-		return fmt.Errorf("metadata value must be JSON-serializable: %w", err)
-	}
-
+func (c *Client) SetMetadata(key string, value any) {
 	c.metadataManager.Set(key, value)
-	return nil
 }
 
 func (c *Client) GetMetadata() map[string]any {
@@ -151,26 +130,28 @@ func (c *Client) GetMetadata() map[string]any {
 }
 
 func (c *Client) GetSessionId() *string {
-	// Server environments don't use session IDs
 	return nil
 }
 
 func (c *Client) Track(name string, args ...any) error {
-	// Validate event name (optimized single check)
-	nameLen := len(name)
-	if nameLen == 0 {
-		return errors.New("event name cannot be empty")
-	}
-	if nameLen > 255 {
-		return errors.New("event name cannot exceed 255 characters")
+	if c.disposed {
+		c.loggerAdapter.Warn("Cannot track event: Client has been disposed")
+		return nil
 	}
 
-	// Parse optional arguments
-	var payload any
+	if err := c.Init(); err != nil {
+		return err
+	}
+
+	var payload map[string]any
 	var metadata map[string]any
 
-	if len(args) > 0 {
-		payload = args[0]
+	if len(args) > 0 && args[0] != nil {
+		if p, ok := args[0].(map[string]any); ok {
+			payload = p
+		} else {
+			return errors.New("payload must be of type map[string]any or nil")
+		}
 	}
 	if len(args) > 1 {
 		if meta, ok := args[1].(map[string]any); ok {
@@ -178,77 +159,27 @@ func (c *Client) Track(name string, args ...any) error {
 		}
 	}
 
-	c.mu.RLock()
-	initialized := c.initialized
-	c.mu.RUnlock()
-
-	if !initialized {
-		return errors.New("client not initialized. Call Init() before tracking events")
-	}
-
-	// Convert payload to map[string]any if provided
-	var eventPayload map[string]any
-	if payload != nil {
-		if p, ok := payload.(map[string]any); ok {
-			eventPayload = p
-		} else {
-			return errors.New("payload must be of type map[string]any or nil")
-		}
-
-		// Validate payload size
-		if payloadBytes, err := json.Marshal(eventPayload); err == nil {
-			if len(payloadBytes) > maxPayloadSize {
-				return fmt.Errorf("payload size (%d bytes) exceeds maximum allowed (%d bytes)", len(payloadBytes), maxPayloadSize)
-			}
-		}
-	}
-
 	// Merge shared metadata with event-specific metadata
 	sharedMetadata := c.metadataManager.GetAll()
-	finalMetadata := make(map[string]any)
-
-	// Start with shared metadata
-	for k, v := range sharedMetadata {
-		finalMetadata[k] = v
-	}
-
-	// Override with event-specific metadata
-	for k, v := range metadata {
-		// Validate that value is JSON-serializable
-		if _, err := json.Marshal(v); err != nil {
-			return fmt.Errorf("metadata value for key '%s' must be JSON-serializable: %w", k, err)
-		}
-		finalMetadata[k] = v
-	}
-
-	// Use nil if no metadata at all
 	var eventMetadata map[string]any
-	if len(finalMetadata) > 0 {
-		eventMetadata = finalMetadata
 
-		// Validate metadata size
-		if metadataBytes, err := json.Marshal(eventMetadata); err == nil {
-			if len(metadataBytes) > maxMetadataSize {
-				return fmt.Errorf("metadata size (%d bytes) exceeds maximum allowed (%d bytes)", len(metadataBytes), maxMetadataSize)
-			}
+	if len(sharedMetadata) > 0 || len(metadata) > 0 {
+		eventMetadata = make(map[string]any)
+		for k, v := range sharedMetadata {
+			eventMetadata[k] = v
+		}
+		for k, v := range metadata {
+			eventMetadata[k] = v
 		}
 	}
 
-	now := time.Now().UnixMilli()
 	event := Event{
 		Name:      name,
-		Payload:   eventPayload,
+		Payload:   payload,
 		Metadata:  eventMetadata,
-		IssuedAt:  now,
-		SessionID: nil, // Server environments don't use session IDs
+		IssuedAt:  time.Now().UnixMilli(),
+		SessionID: nil,
 		Platform:  serverPlatform,
-	}
-
-	// Validate total event size
-	if eventBytes, err := json.Marshal(event); err == nil {
-		if len(eventBytes) > maxEventSize {
-			return fmt.Errorf("event size (%d bytes) exceeds maximum allowed (%d bytes)", len(eventBytes), maxEventSize)
-		}
 	}
 
 	c.loggerAdapter.Debug("Tracking event: %s", name)
@@ -257,11 +188,7 @@ func (c *Client) Track(name string, args ...any) error {
 }
 
 func (c *Client) Flush() {
-	c.mu.RLock()
-	initialized := c.initialized
-	c.mu.RUnlock()
-
-	if !initialized {
+	if !c.initialized {
 		c.loggerAdapter.Warn("Flush called before initialization")
 		return
 	}
@@ -270,45 +197,17 @@ func (c *Client) Flush() {
 	c.dispatcher.Flush()
 }
 
-// Close stops the client and flushes all events to the server.
-// This is the idiomatic Go method for cleanup. Use this instead of Dispose().
-func (c *Client) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if !c.initialized {
-		return nil
-	}
-
-	c.loggerAdapter.Info("Closing client")
-	err := c.dispatcher.Stop()
+// Dispose cleans up resources. Matches TS dispose() behavior:
+// aborts retries, clears queue, clears metadata, resets state.
+func (c *Client) Dispose() {
+	c.dispatcher.Dispose()
+	c.metadataManager.Clear()
+	c.disposed = true
 	c.initialized = false
-	return err
+	c.loggerAdapter.Info("Client disposed")
 }
 
-// Dispose stops the client and flushes all events to the server.
-// Deprecated: Use Close() instead for idiomatic Go cleanup.
-func (c *Client) Dispose() error {
-	return c.Close()
-}
-
-// CloseWithoutFlush stops the client and persists events to storage without flushing to server.
-func (c *Client) CloseWithoutFlush() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if !c.initialized {
-		return nil
-	}
-
-	c.loggerAdapter.Info("Closing client without flush")
-	err := c.dispatcher.StopWithoutFlush()
-	c.initialized = false
-	return err
-}
-
-// DisposeWithoutFlush stops the client and persists events to storage without flushing to server.
-// Deprecated: Use CloseWithoutFlush() instead for idiomatic Go cleanup.
-func (c *Client) DisposeWithoutFlush() error {
-	return c.CloseWithoutFlush()
+// Close is an alias for Dispose for idiomatic Go cleanup.
+func (c *Client) Close() {
+	c.Dispose()
 }

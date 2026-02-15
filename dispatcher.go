@@ -2,21 +2,18 @@ package ripple
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"sync"
 	"time"
-
-	"github.com/Tap30/ripple-go/adapters"
 )
 
 const (
-	maxBackoffDuration = 60 * time.Second
+	maxBackoffDuration = 30 * time.Second
 	maxJitterMs        = 1000
 )
 
 // Dispatcher manages event queuing, batching, flushing, and retry logic.
-// Automatically flushes events based on batch size or time interval.
-// Implements exponential backoff with jitter for retries.
 type Dispatcher struct {
 	config         DispatcherConfig
 	queue          *Queue
@@ -24,78 +21,62 @@ type Dispatcher struct {
 	storageAdapter StorageAdapter
 	loggerAdapter  LoggerAdapter
 	headers        map[string]string
-	ticker         *time.Ticker
-	stopChan       chan struct{}
+	timer          *time.Timer
 	flushMutex     *Mutex
-	wg             sync.WaitGroup
-	timerStarted   bool
-	stopped        bool
-	timerMu        sync.Mutex
+	retryCancel    context.CancelFunc
+	disposed       bool
+	mu             sync.Mutex
 }
 
 // NewDispatcher creates a new Dispatcher instance.
-func NewDispatcher(config DispatcherConfig, httpAdapter HTTPAdapter, storageAdapter StorageAdapter, headers map[string]string) *Dispatcher {
-	d := &Dispatcher{
+func NewDispatcher(config DispatcherConfig, httpAdapter HTTPAdapter, storageAdapter StorageAdapter, loggerAdapter LoggerAdapter) *Dispatcher {
+	return &Dispatcher{
 		config:         config,
 		queue:          NewQueue(),
 		httpAdapter:    httpAdapter,
 		storageAdapter: storageAdapter,
-		loggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelWarn),
-		headers:        headers,
-		stopChan:       make(chan struct{}),
-		flushMutex:     NewMutex(),
+		loggerAdapter:  loggerAdapter,
+		headers: map[string]string{
+			config.APIKeyHeader: config.APIKey,
+			"Content-Type":      "application/json",
+		},
+		flushMutex: NewMutex(),
 	}
-
-	// Validate configuration
-	if config.MaxBufferSize > 0 && config.MaxBufferSize < config.MaxBatchSize {
-		d.loggerAdapter.Warn(
-			"Configuration warning: maxBufferSize (%d) is less than maxBatchSize (%d). "+
-				"This means the batch size will never be reached and events will be dropped unnecessarily. "+
-				"Consider setting maxBufferSize >= maxBatchSize.",
-			config.MaxBufferSize,
-			config.MaxBatchSize,
-		)
-	}
-
-	return d
-}
-
-// SetLoggerAdapter sets a custom logger adapter.
-func (d *Dispatcher) SetLoggerAdapter(logger LoggerAdapter) {
-	d.loggerAdapter = logger
 }
 
 // Enqueue adds an event to the queue.
-// Triggers auto-flush if batch size threshold is reached.
 func (d *Dispatcher) Enqueue(event Event) {
+	d.mu.Lock()
+	if d.disposed {
+		d.mu.Unlock()
+		d.loggerAdapter.Warn("Cannot enqueue event: Dispatcher has been disposed")
+		return
+	}
+	d.mu.Unlock()
+
 	d.queue.Enqueue(event)
 
 	// Apply buffer limit and persist
 	eventsToSave := d.applyQueueLimit(d.queue.ToSlice())
 	if len(eventsToSave) < d.queue.Len() {
-		// Queue was trimmed, reload with limited events
 		d.queue.Clear()
 		d.queue.LoadFromSlice(eventsToSave)
 	}
 
 	if err := d.storageAdapter.Save(eventsToSave); err != nil {
-		d.loggerAdapter.Error("Failed to persist events to storage", map[string]any{
-			"error":     err.Error(),
+		d.logStorageError("Failed to persist events to storage", err, map[string]any{
 			"queueSize": d.queue.Len(),
 		})
 	}
 
 	if d.queue.Len() >= d.config.MaxBatchSize {
-		go d.Flush()
+		d.Flush()
 	} else {
 		d.scheduleFlush()
 	}
 }
 
 // Flush immediately flushes all queued events.
-// Cancels any scheduled flush.
-// Uses mutex to prevent concurrent flush operations.
-// Events are sent in batches according to maxBatchSize (dynamic rebatching).
 func (d *Dispatcher) Flush() {
 	d.flushMutex.RunAtomic(func() error {
 		d.stopTimer()
@@ -104,42 +85,39 @@ func (d *Dispatcher) Flush() {
 			return nil
 		}
 
-		ctx := context.Background()
-		if d.config.FlushTimeout > 0 {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, d.config.FlushTimeout)
-			defer cancel()
-		}
+		ctx, cancel := context.WithCancel(context.Background())
+		d.mu.Lock()
+		d.retryCancel = cancel
+		d.mu.Unlock()
+		defer cancel()
 
 		allEvents := d.queue.ToSlice()
 		d.queue.Clear()
 
-		var lastErr error
 		for i := 0; i < len(allEvents); i += d.config.MaxBatchSize {
 			end := i + d.config.MaxBatchSize
 			if end > len(allEvents) {
 				end = len(allEvents)
 			}
-			batch := allEvents[i:end]
-
-			if err := d.sendWithRetry(ctx, batch, 0); err != nil {
-				lastErr = err
-			}
+			d.sendWithRetry(ctx, allEvents[i:end], 0)
 		}
 
-		return lastErr
+		return nil
 	})
 }
 
-// Restore restores persisted events from storage.
-// Called during initialization to recover unsent events.
-func (d *Dispatcher) Restore() error {
+// Restore loads persisted events from storage.
+func (d *Dispatcher) Restore() {
+	d.mu.Lock()
+	d.disposed = false
+	d.mu.Unlock()
+
 	events, err := d.storageAdapter.Load()
 	if err != nil {
 		d.loggerAdapter.Error("Failed to restore events from storage", map[string]any{
 			"error": err.Error(),
 		})
-		return err
+		return
 	}
 
 	limited := d.applyQueueLimit(events)
@@ -148,67 +126,25 @@ func (d *Dispatcher) Restore() error {
 	if d.queue.Len() > 0 {
 		d.scheduleFlush()
 	}
-
-	return nil
 }
 
-// Dispose cleans up resources, cancels scheduled flushes, and clears all references.
-// stopDispatcher is the common stop logic that ensures stopChan is only closed once.
-func (d *Dispatcher) stopDispatcher() bool {
-	d.timerMu.Lock()
-	if d.stopped {
-		d.timerMu.Unlock()
-		return false
+// Dispose cleans up resources: aborts retries, clears queue, releases mutex.
+func (d *Dispatcher) Dispose() {
+	d.mu.Lock()
+	d.disposed = true
+	cancel := d.retryCancel
+	d.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
 	}
-	d.stopped = true
-	d.timerMu.Unlock()
 
 	d.stopTimer()
-	close(d.stopChan)
-	d.wg.Wait()
-	return true
-}
-
-// Should be called when disposing the client.
-func (d *Dispatcher) Dispose() {
-	if !d.stopDispatcher() {
-		return
-	}
 	d.queue.Clear()
+	d.flushMutex.Release()
 }
 
-// Stop stops the dispatcher and flushes all events.
-func (d *Dispatcher) Stop() error {
-	if !d.stopDispatcher() {
-		return nil
-	}
-
-	d.Flush()
-
-	events := d.queue.ToSlice()
-	if len(events) > 0 {
-		limited := d.applyQueueLimit(events)
-		return d.storageAdapter.Save(limited)
-	}
-	return nil
-}
-
-// StopWithoutFlush stops the dispatcher and persists events to storage without flushing to server.
-func (d *Dispatcher) StopWithoutFlush() error {
-	if !d.stopDispatcher() {
-		return nil
-	}
-
-	events := d.queue.ToSlice()
-	if len(events) > 0 {
-		limited := d.applyQueueLimit(events)
-		return d.storageAdapter.Save(limited)
-	}
-	return nil
-}
-
-// applyQueueLimit applies the maxBufferSize limit to events using FIFO eviction.
-// Returns the limited slice of events (keeping the most recent ones).
+// applyQueueLimit applies the maxBufferSize limit using FIFO eviction.
 func (d *Dispatcher) applyQueueLimit(events []Event) []Event {
 	if d.config.MaxBufferSize > 0 && len(events) > d.config.MaxBufferSize {
 		return events[len(events)-d.config.MaxBufferSize:]
@@ -217,58 +153,49 @@ func (d *Dispatcher) applyQueueLimit(events []Event) []Event {
 }
 
 // sendWithRetry sends events with exponential backoff retry logic.
-func (d *Dispatcher) sendWithRetry(ctx context.Context, events []Event, attempt int) error {
-	resp, err := d.httpAdapter.SendWithContext(ctx, d.config.Endpoint, events, d.headers)
+func (d *Dispatcher) sendWithRetry(ctx context.Context, events []Event, attempt int) {
+	resp, err := d.httpAdapter.SendWithContext(ctx, d.config.Endpoint, events, d.headers, d.config.APIKeyHeader)
 
 	if err != nil {
-		return d.handleNetworkError(ctx, err, events, attempt)
+		d.handleNetworkError(ctx, err, events, attempt)
 	} else {
-		return d.handleResponse(ctx, resp, events, attempt)
+		d.handleResponse(ctx, resp, events, attempt)
 	}
 }
 
-// handleResponse handles HTTP response based on status code.
-func (d *Dispatcher) handleResponse(ctx context.Context, resp *HTTPResponse, events []Event, attempt int) error {
+func (d *Dispatcher) handleResponse(ctx context.Context, resp *HTTPResponse, events []Event, attempt int) {
 	if resp.Status >= 200 && resp.Status < 300 {
-		if err := d.clearStorage(); err != nil {
+		if err := d.storageAdapter.Clear(); err != nil {
 			d.loggerAdapter.Error("Failed to clear storage after successful send", map[string]any{
 				"error": err.Error(),
 			})
-			return err
 		}
-		return nil
 	} else if resp.Status >= 400 && resp.Status < 500 {
 		d.loggerAdapter.Warn("4xx client error, dropping events", map[string]any{
 			"status":      resp.Status,
 			"eventsCount": len(events),
 		})
-		if err := d.clearStorage(); err != nil {
+		if err := d.storageAdapter.Clear(); err != nil {
 			d.loggerAdapter.Error("Failed to clear storage after 4xx error", map[string]any{
 				"error": err.Error(),
 			})
-			return err
 		}
-		return nil
 	} else if resp.Status >= 500 {
-		return d.handleServerError(ctx, resp.Status, events, attempt)
+		d.handleServerError(ctx, resp.Status, events, attempt)
 	} else {
-		// 1xx, 3xx: Unexpected status codes, treat as client error and drop
 		d.loggerAdapter.Warn("Unexpected status code, dropping events", map[string]any{
 			"status":      resp.Status,
 			"eventsCount": len(events),
 		})
-		if err := d.clearStorage(); err != nil {
+		if err := d.storageAdapter.Clear(); err != nil {
 			d.loggerAdapter.Error("Failed to clear storage after unexpected status", map[string]any{
 				"error": err.Error(),
 			})
-			return err
 		}
-		return nil
 	}
 }
 
-// handleServerError handles 5xx server errors with retry logic.
-func (d *Dispatcher) handleServerError(ctx context.Context, status int, events []Event, attempt int) error {
+func (d *Dispatcher) handleServerError(ctx context.Context, status int, events []Event, attempt int) {
 	if attempt < d.config.MaxRetries {
 		d.loggerAdapter.Warn("5xx server error, retrying", map[string]any{
 			"status":     status,
@@ -276,27 +203,21 @@ func (d *Dispatcher) handleServerError(ctx context.Context, status int, events [
 			"maxRetries": d.config.MaxRetries,
 		})
 
-		time.Sleep(d.calculateBackoff(attempt))
-		return d.sendWithRetry(ctx, events, attempt+1)
+		if !d.delay(ctx, d.calculateBackoff(attempt)) {
+			return
+		}
+		d.sendWithRetry(ctx, events, attempt+1)
 	} else {
 		d.loggerAdapter.Error("5xx server error, max retries reached", map[string]any{
 			"status":      status,
 			"maxRetries":  d.config.MaxRetries,
 			"eventsCount": len(events),
 		})
-		if err := d.requeueEvents(events); err != nil {
-			d.loggerAdapter.Error("Failed to persist events after max retries", map[string]any{
-				"error":       err.Error(),
-				"eventsCount": d.queue.Len(),
-			})
-			return err
-		}
-		return nil
+		d.requeueEvents(events)
 	}
 }
 
-// handleNetworkError handles network errors with retry logic.
-func (d *Dispatcher) handleNetworkError(ctx context.Context, err error, events []Event, attempt int) error {
+func (d *Dispatcher) handleNetworkError(ctx context.Context, err error, events []Event, attempt int) {
 	d.loggerAdapter.Error("Network error occurred", map[string]any{"error": err.Error()})
 
 	if attempt < d.config.MaxRetries {
@@ -306,87 +227,73 @@ func (d *Dispatcher) handleNetworkError(ctx context.Context, err error, events [
 			"error":      err.Error(),
 		})
 
-		time.Sleep(d.calculateBackoff(attempt))
-		return d.sendWithRetry(ctx, events, attempt+1)
+		if !d.delay(ctx, d.calculateBackoff(attempt)) {
+			return
+		}
+		d.sendWithRetry(ctx, events, attempt+1)
 	} else {
 		d.loggerAdapter.Error("Network error, max retries reached", map[string]any{
 			"maxRetries":  d.config.MaxRetries,
 			"eventsCount": len(events),
 			"error":       err.Error(),
 		})
-		if err := d.requeueEvents(events); err != nil {
-			d.loggerAdapter.Error("Failed to persist events after network error", map[string]any{
-				"error":       err.Error(),
-				"eventsCount": d.queue.Len(),
-			})
-			return err
-		}
-		return nil
+		d.requeueEvents(events)
 	}
 }
 
-// clearStorage clears storage and returns any error.
-func (d *Dispatcher) clearStorage() error {
-	return d.storageAdapter.Clear()
-}
-
-// requeueEvents re-queues events and persists to storage, returning any error.
-func (d *Dispatcher) requeueEvents(events []Event) error {
+func (d *Dispatcher) requeueEvents(events []Event) {
 	currentQueue := d.queue.ToSlice()
-
-	// Re-queue failed events at the front
 	events = append(events, currentQueue...)
-
-	// Apply buffer limit before loading into queue
 	limited := d.applyQueueLimit(events)
 	d.queue.Clear()
 	d.queue.LoadFromSlice(limited)
 
-	return d.storageAdapter.Save(limited)
+	if err := d.storageAdapter.Save(limited); err != nil {
+		d.logStorageError("Failed to persist events after requeue", err, nil)
+	}
 }
 
-// scheduleFlush schedules an automatic flush after the configured interval.
-// Does nothing if a flush is already scheduled.
+// scheduleFlush schedules a one-shot flush after the configured interval.
 func (d *Dispatcher) scheduleFlush() {
-	d.timerMu.Lock()
-	defer d.timerMu.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-	if d.timerStarted || d.stopped {
+	if d.disposed || d.timer != nil {
 		return
 	}
 
-	d.ticker = time.NewTicker(d.config.FlushInterval)
-	d.timerStarted = true
-
-	tickerChan := d.ticker.C
-
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
-		for {
-			select {
-			case <-tickerChan:
-				d.Flush()
-			case <-d.stopChan:
-				return
-			}
-		}
-	}()
+	d.timer = time.AfterFunc(d.config.FlushInterval, func() {
+		d.mu.Lock()
+		d.timer = nil
+		d.mu.Unlock()
+		d.Flush()
+	})
 }
 
-// stopTimer stops the flush timer if it's running.
 func (d *Dispatcher) stopTimer() {
-	d.timerMu.Lock()
-	defer d.timerMu.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-	if d.ticker != nil {
-		d.ticker.Stop()
-		d.ticker = nil
+	if d.timer != nil {
+		d.timer.Stop()
+		d.timer = nil
 	}
-	d.timerStarted = false
 }
 
-// calculateBackoff calculates exponential backoff with jitter.
+// logStorageError logs storage errors, using warn level for StorageQuotaExceededError.
+func (d *Dispatcher) logStorageError(message string, err error, extra map[string]any) {
+	args := map[string]any{"error": err.Error()}
+	for k, v := range extra {
+		args[k] = v
+	}
+	var quotaErr *StorageQuotaExceededError
+	if errors.As(err, &quotaErr) {
+		d.loggerAdapter.Warn(message, args)
+	} else {
+		d.loggerAdapter.Error(message, args)
+	}
+}
+
 func (d *Dispatcher) calculateBackoff(attempt int) time.Duration {
 	backoff := time.Duration(1<<attempt) * time.Second
 	if backoff > maxBackoffDuration {
@@ -394,4 +301,15 @@ func (d *Dispatcher) calculateBackoff(attempt int) time.Duration {
 	}
 	jitter := time.Duration(rand.Intn(maxJitterMs)) * time.Millisecond
 	return backoff + jitter
+}
+
+// delay waits for the given duration or until context is cancelled.
+// Returns true if the delay completed, false if cancelled.
+func (d *Dispatcher) delay(ctx context.Context, duration time.Duration) bool {
+	select {
+	case <-time.After(duration):
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }

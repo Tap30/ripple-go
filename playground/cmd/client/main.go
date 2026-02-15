@@ -84,8 +84,7 @@ func main() {
 			disposeClient()
 		case "15":
 			fmt.Println("👋 Goodbye!")
-			// Persist events to storage without flushing to server
-			client.DisposeWithoutFlush()
+			client.Dispose()
 			return
 		default:
 			fmt.Println("❌ Invalid option. Please try again.\n")
@@ -178,10 +177,7 @@ func setSharedMetadata() {
 	key := fmt.Sprintf("key_%d", metadataCounter)
 	value := fmt.Sprintf("value_%d", metadataCounter)
 
-	if err := client.SetMetadata(key, value); err != nil {
-		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
-		return
-	}
+	client.SetMetadata(key, value)
 	fmt.Printf("✅ Shared metadata set: %s = %s\n\n", key, value)
 }
 
@@ -241,10 +237,7 @@ func setMetadata() {
 	key := fmt.Sprintf("key_%d", metadataCounter)
 	value := fmt.Sprintf("value_%d", metadataCounter)
 
-	if err := client.SetMetadata(key, value); err != nil {
-		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
-		return
-	}
+	client.SetMetadata(key, value)
 	fmt.Printf("✅ Metadata set: %s = %s\n\n", key, value)
 }
 
