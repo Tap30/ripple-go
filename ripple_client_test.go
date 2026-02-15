@@ -249,6 +249,20 @@ func TestClient_DisposedBehavior(t *testing.T) {
 	})
 }
 
+func TestClient_TrackValidation(t *testing.T) {
+	t.Run("should reject empty event name", func(t *testing.T) {
+		client := createTestClient()
+
+		err := client.Track("")
+		if err == nil {
+			t.Fatal("expected error for empty event name")
+		}
+		if err.Error() != "event name cannot be empty" {
+			t.Fatalf("unexpected error message: %v", err)
+		}
+	})
+}
+
 func TestClient_MetadataManagement(t *testing.T) {
 	client := createTestClient()
 
@@ -405,8 +419,10 @@ func TestClient_InitEdgeCases(t *testing.T) {
 			<-done
 		}
 
-		if !client.initialized {
-			t.Fatal("expected client to be initialized")
+		// Verify initialization by tracking an event (uses public API only)
+		err := client.Track("test_event")
+		if err != nil {
+			t.Fatalf("expected initialized client to track events, got error: %v", err)
 		}
 	})
 

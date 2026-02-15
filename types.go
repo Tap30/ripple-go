@@ -1,6 +1,7 @@
 package ripple
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Tap30/ripple-go/adapters"
@@ -43,7 +44,7 @@ type HTTPError struct {
 }
 
 func (e *HTTPError) Error() string {
-	return "HTTP request failed"
+	return fmt.Sprintf("HTTP request failed with status %d", e.Status)
 }
 
 type ClientConfig struct {

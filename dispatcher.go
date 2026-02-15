@@ -22,7 +22,7 @@ type Dispatcher struct {
 	loggerAdapter  LoggerAdapter
 	headers        map[string]string
 	timer          *time.Timer
-	flushMutex     *Mutex
+	flushMu        sync.Mutex
 	retryCancel    context.CancelFunc
 	disposed       bool
 	mu             sync.Mutex
@@ -40,7 +40,6 @@ func NewDispatcher(config DispatcherConfig, httpAdapter HTTPAdapter, storageAdap
 			config.APIKeyHeader: config.APIKey,
 			"Content-Type":      "application/json",
 		},
-		flushMutex: NewMutex(),
 	}
 }
 
@@ -78,32 +77,31 @@ func (d *Dispatcher) Enqueue(event Event) {
 
 // Flush immediately flushes all queued events.
 func (d *Dispatcher) Flush() {
-	d.flushMutex.RunAtomic(func() error {
-		d.stopTimer()
+	d.flushMu.Lock()
+	defer d.flushMu.Unlock()
 
-		if d.queue.IsEmpty() {
-			return nil
+	d.stopTimer()
+
+	if d.queue.IsEmpty() {
+		return
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	d.mu.Lock()
+	d.retryCancel = cancel
+	d.mu.Unlock()
+	defer cancel()
+
+	allEvents := d.queue.ToSlice()
+	d.queue.Clear()
+
+	for i := 0; i < len(allEvents); i += d.config.MaxBatchSize {
+		end := i + d.config.MaxBatchSize
+		if end > len(allEvents) {
+			end = len(allEvents)
 		}
-
-		ctx, cancel := context.WithCancel(context.Background())
-		d.mu.Lock()
-		d.retryCancel = cancel
-		d.mu.Unlock()
-		defer cancel()
-
-		allEvents := d.queue.ToSlice()
-		d.queue.Clear()
-
-		for i := 0; i < len(allEvents); i += d.config.MaxBatchSize {
-			end := i + d.config.MaxBatchSize
-			if end > len(allEvents) {
-				end = len(allEvents)
-			}
-			d.sendWithRetry(ctx, allEvents[i:end], 0)
-		}
-
-		return nil
-	})
+		d.sendWithRetry(ctx, allEvents[i:end], 0)
+	}
 }
 
 // Restore loads persisted events from storage.
@@ -141,7 +139,6 @@ func (d *Dispatcher) Dispose() {
 
 	d.stopTimer()
 	d.queue.Clear()
-	d.flushMutex.Release()
 }
 
 // applyQueueLimit applies the maxBufferSize limit using FIFO eviction.
@@ -153,6 +150,7 @@ func (d *Dispatcher) applyQueueLimit(events []Event) []Event {
 }
 
 // sendWithRetry sends events with exponential backoff retry logic.
+// Note: This method never logs headers to prevent API key exposure.
 func (d *Dispatcher) sendWithRetry(ctx context.Context, events []Event, attempt int) {
 	resp, err := d.httpAdapter.SendWithContext(ctx, d.config.Endpoint, events, d.headers, d.config.APIKeyHeader)
 
@@ -294,11 +292,16 @@ func (d *Dispatcher) logStorageError(message string, err error, extra map[string
 	}
 }
 
+// calculateBackoff computes exponential backoff with jitter.
+// Formula: (2^attempt seconds) + random jitter, capped at 30s.
+// Example progression: 1s, 2s, 4s, 8s, 16s, 30s (capped).
 func (d *Dispatcher) calculateBackoff(attempt int) time.Duration {
+	// Exponential backoff: 2^attempt seconds
 	backoff := time.Duration(1<<attempt) * time.Second
 	if backoff > maxBackoffDuration {
 		backoff = maxBackoffDuration
 	}
+	// Add random jitter (0-1000ms) to prevent thundering herd
 	jitter := time.Duration(rand.Intn(maxJitterMs)) * time.Millisecond
 	return backoff + jitter
 }

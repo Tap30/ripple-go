@@ -50,5 +50,9 @@ func (f *FileStorageAdapter) Load() ([]Event, error) {
 
 // Clear removes the storage file.
 func (f *FileStorageAdapter) Clear() error {
-	return os.Remove(f.filepath)
+	err := os.Remove(f.filepath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }

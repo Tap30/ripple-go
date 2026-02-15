@@ -28,30 +28,30 @@ type Client struct {
 func NewClient(config ClientConfig) (*Client, error) {
 	// Validate required fields
 	if config.APIKey == "" {
-		return nil, errors.New("APIKey is required")
+		return nil, errors.New("api key is required")
 	}
 	if config.Endpoint == "" {
-		return nil, errors.New("Endpoint is required")
+		return nil, errors.New("endpoint is required")
 	}
 	if config.HTTPAdapter == nil {
-		return nil, errors.New("HTTPAdapter is required")
+		return nil, errors.New("http adapter is required")
 	}
 	if config.StorageAdapter == nil {
-		return nil, errors.New("StorageAdapter is required")
+		return nil, errors.New("storage adapter is required")
 	}
 
 	// Validate numeric config values
 	if config.FlushInterval < 0 || (config.FlushInterval > 0 && config.FlushInterval < time.Millisecond) {
-		return nil, errors.New("FlushInterval must be a positive duration")
+		return nil, errors.New("flush interval must be a positive duration")
 	}
 	if config.MaxBatchSize < 0 {
-		return nil, errors.New("MaxBatchSize must be a positive number")
+		return nil, errors.New("max batch size must be a positive number")
 	}
 	if config.MaxRetries < 0 {
-		return nil, errors.New("MaxRetries must be a non-negative number")
+		return nil, errors.New("max retries must be a non-negative number")
 	}
 	if config.MaxBufferSize < 0 {
-		return nil, errors.New("MaxBufferSize must be a positive number")
+		return nil, errors.New("max buffer size must be a positive number")
 	}
 
 	// Set defaults
@@ -87,7 +87,7 @@ func NewClient(config ClientConfig) (*Client, error) {
 
 	// Validate buffer vs batch
 	if config.MaxBufferSize > 0 && config.MaxBufferSize < config.MaxBatchSize {
-		return nil, fmt.Errorf("MaxBufferSize (%d) must be greater than or equal to MaxBatchSize (%d)", config.MaxBufferSize, config.MaxBatchSize)
+		return nil, fmt.Errorf("max buffer size (%d) must be greater than or equal to max batch size (%d)", config.MaxBufferSize, config.MaxBatchSize)
 	}
 
 	dispatcher := NewDispatcher(dispatcherConfig, config.HTTPAdapter, config.StorageAdapter, loggerAdapter)
@@ -103,10 +103,6 @@ func NewClient(config ClientConfig) (*Client, error) {
 }
 
 func (c *Client) Init() error {
-	if c.initialized {
-		return nil
-	}
-
 	c.initMu.Lock()
 	defer c.initMu.Unlock()
 
@@ -134,6 +130,10 @@ func (c *Client) GetSessionId() *string {
 }
 
 func (c *Client) Track(name string, args ...any) error {
+	if name == "" {
+		return errors.New("event name cannot be empty")
+	}
+
 	if c.disposed {
 		c.loggerAdapter.Warn("Cannot track event: Client has been disposed")
 		return nil
