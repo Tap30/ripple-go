@@ -10,6 +10,7 @@ import (
 )
 
 type mockLogger struct {
+	mu        sync.Mutex
 	debugs    []string
 	infos     []string
 	warnings  []string
@@ -19,19 +20,27 @@ type mockLogger struct {
 }
 
 func (m *mockLogger) Debug(message string, args ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.debugs = append(m.debugs, fmt.Sprintf(message, args...))
 }
 
 func (m *mockLogger) Info(message string, args ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.infos = append(m.infos, fmt.Sprintf(message, args...))
 }
 
 func (m *mockLogger) Warn(message string, args ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.warnCount++
 	m.warnings = append(m.warnings, fmt.Sprintf(message, args...))
 }
 
 func (m *mockLogger) Error(message string, args ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.errCount++
 	m.errs = append(m.errs, fmt.Sprintf(message, args...))
 }
@@ -70,6 +79,10 @@ func (m *mockHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, 
 			status = 500
 		}
 		return &HTTPResponse{Status: status}, nil
+	}
+	// Return custom status code if set, otherwise 200
+	if statusCode != 0 {
+		return &HTTPResponse{Status: statusCode}, nil
 	}
 	return &HTTPResponse{Status: 200}, nil
 }
@@ -733,6 +746,49 @@ func TestDispatcher_ClearStorageErrors(t *testing.T) {
 		}
 		if logger.errCount == 0 {
 			t.Error("expected error log for clear failure")
+		}
+	})
+
+	t.Run("clear error on 3xx redirect (unexpected status)", func(t *testing.T) {
+		httpAdapter := &mockHTTPAdapter{statusCode: 301}
+		storageAdapter := &mockStorageAdapter{clearErr: errors.New("clear failed")}
+		logger := &mockLogger{}
+		d := NewDispatcher(DispatcherConfig{
+			APIKey:        "test-key",
+			APIKeyHeader:  "X-API-Key",
+			Endpoint:      "http://test.com",
+			FlushInterval: 10 * time.Second,
+			MaxBatchSize:  10,
+			MaxRetries:    3,
+		}, httpAdapter, storageAdapter, logger)
+
+		d.Restore()
+		d.Enqueue(Event{Name: "test"})
+		d.Flush()
+
+		httpAdapter.mu.Lock()
+		httpCalls := httpAdapter.calls
+		httpAdapter.mu.Unlock()
+
+		logger.mu.Lock()
+		warnCount := logger.warnCount
+		errCount := logger.errCount
+		warnings := logger.warnings
+		logger.mu.Unlock()
+
+		clearCalls := storageAdapter.clearCalls
+
+		if httpCalls == 0 {
+			t.Error("expected HTTP adapter to be called")
+		}
+		if clearCalls != 1 {
+			t.Errorf("expected 1 clear call, got %d", clearCalls)
+		}
+		if warnCount == 0 {
+			t.Errorf("expected warn log for unexpected status, got %d warnings: %v", warnCount, warnings)
+		}
+		if errCount == 0 {
+			t.Errorf("expected error log for clear failure, got %d errors", errCount)
 		}
 	})
 }
