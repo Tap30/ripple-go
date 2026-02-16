@@ -107,6 +107,7 @@ type ClientConfig struct {
 ```
 
 Configuration validation:
+
 - `FlushInterval` must be positive if provided
 - `MaxBatchSize` must be positive if provided
 - `MaxRetries` must be non-negative if provided
@@ -140,11 +141,13 @@ Note: `Track()` automatically calls `Init()`, so explicit initialization is opti
 Tracks an event with optional payload and metadata.
 
 Parameters:
+
 - `name` - Event name/identifier (required, cannot be empty)
 - `payload` - Event data payload (optional, pass `nil` if not needed)
 - `metadata` - Event-specific metadata (optional, pass `nil` if not needed)
 
 Usage examples:
+
 - `Track("page_view", nil, nil)` - Simple event tracking
 - `Track("click", map[string]any{"button": "submit"}, nil)` - Event with payload
 - `Track("purchase", payload, map[string]any{"version": "1.0"})` - Event with payload and metadata
@@ -227,10 +230,10 @@ go func() {
 
 ## Logger Adapters
 
-| Adapter                  | Output  | Configurable | Use Case                    |
-| ------------------------ | ------- | ------------ | --------------------------- |
-| **PrintLoggerAdapter**   | Stdout  | Yes          | Development and debugging   |
-| **NoOpLoggerAdapter**    | None    | No           | Production (silent logging) |
+| Adapter                | Output | Configurable | Use Case                    |
+| ---------------------- | ------ | ------------ | --------------------------- |
+| **PrintLoggerAdapter** | Stdout | Yes          | Development and debugging   |
+| **NoOpLoggerAdapter**  | None   | No           | Production (silent logging) |
 
 ### Log Levels
 
@@ -251,6 +254,9 @@ client, err := ripple.NewClient(ripple.ClientConfig{
 
 ## Storage Adapters
 
+| Adapter                | Capacity  | Persistence | Use Case                          |
+| ---------------------- | --------- | ----------- | --------------------------------- |
+| **NoOpStorageAdapter** | N/A       | None        | Default, no persistence           |
 | Adapter                | Capacity  | Persistence | Use Case                          |
 | ---------------------- | --------- | ----------- | --------------------------------- |
 | **NoOpStorageAdapter** | N/A       | None        | Default, no persistence           |
@@ -288,10 +294,6 @@ For custom storage implementations (e.g., file, Redis, database), implement the 
 
 See [AGENTS.md](./AGENTS.md) for detailed architecture documentation.
 
-## API Contract
-
-See the [API Contract Documentation](https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md) for the shared interface all Ripple SDKs follow.
-
 ## Development
 
 ```bash
@@ -312,6 +314,16 @@ cd playground && make server
 # Terminal 2: Run client
 cd playground && make client
 ```
+
+## Guides
+
+- [Security Best Practices](https://github.com/Tap30/ripple/blob/main/guides/SECURITY.md)
+- [Disaster Recovery](https://github.com/Tap30/ripple/blob/main/guides/DISASTER_RECOVERY.md)
+- [Performance Tuning](https://github.com/Tap30/ripple/blob/main/guides/PERFORMANCE_TUNING.md)
+
+## Design and API Contract
+
+Read the [Design and API Contract Documentation](https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md) to learn about the framework-agnostic API contract for SDKs.
 
 ## Contributing
 
