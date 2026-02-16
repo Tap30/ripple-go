@@ -137,7 +137,7 @@ func (c *Client) GetSessionId() *string {
 //   - name: Event name/identifier (required, cannot be empty)
 //   - payload: Event data payload (optional, pass nil if not needed)
 //   - metadata: Event-specific metadata (optional, pass nil if not needed)
-func (c *Client) Track(name string, payload map[string]any, metadata map[string]any) error {
+func (c *Client) Track(name string, payload, metadata map[string]any) error {
 	if name == "" {
 		return errors.New("event name cannot be empty")
 	}
