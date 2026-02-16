@@ -59,6 +59,11 @@ changelog:
       order: 2
     - title: Others
       order: 999
+  format: |
+    * {{ .Message }} ({{ .ShortHash }}) {{ with .AuthorUsername }}@{{ . }}{{ end }}
+    {{- if .Body }}
+    {{ indent 2 .Body }}
+    {{- end }}
 
 release:
   github:
