@@ -288,10 +288,6 @@ For custom storage implementations (e.g., file, Redis, database), implement the 
 
 See [AGENTS.md](./AGENTS.md) for detailed architecture documentation.
 
-## API Contract
-
-See the [API Contract Documentation](https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md) for the shared interface all Ripple SDKs follow.
-
 ## Development
 
 ```bash
@@ -312,6 +308,15 @@ cd playground && make server
 # Terminal 2: Run client
 cd playground && make client
 ```
+
+## Guides
+
+- [Disaster Recovery](https://github.com/Tap30/ripple/blob/main/guides/DISASTER_RECOVERY.md)
+- [Performance Tuning](https://github.com/Tap30/ripple/blob/main/guides/PERFORMANCE_TUNING.md)
+
+## Design and API Contract
+
+Read the [Design and API Contract Documentation](https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md) to learn about the framework-agnostic API contract for SDKs.
 
 ## Contributing
 
