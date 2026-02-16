@@ -54,3 +54,8 @@ func (f *FileStorageAdapter) Clear() error {
 	}
 	return nil
 }
+
+// Close does nothing for file storage (no persistent connections).
+func (f *FileStorageAdapter) Close() error {
+	return nil
+}

@@ -139,6 +139,12 @@ func (d *Dispatcher) Dispose() {
 
 	d.stopTimer()
 	d.queue.Clear()
+
+	if err := d.storageAdapter.Close(); err != nil {
+		d.loggerAdapter.Error("failed to close storage adapter", map[string]any{
+			"error": err.Error(),
+		})
+	}
 }
 
 // applyQueueLimit applies the maxBufferSize limit using FIFO eviction.

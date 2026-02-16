@@ -39,10 +39,7 @@ func main() {
 		return
 	}
 
-	if err := client.Init(); err != nil {
-		fmt.Printf("❌ Failed to initialize client: %v\n", err)
-		return
-	}
+	client.Init()
 
 	fmt.Println("🎯 Ripple Interactive Client")
 	fmt.Println("Connected to: http://localhost:3000/events")
@@ -228,10 +225,7 @@ func testInvalidEndpoint() {
 		return
 	}
 
-	if err := errorClient.Init(); err != nil {
-		fmt.Printf("❌ Failed to init error client: %v\n\n", err)
-		return
-	}
+	errorClient.Init()
 
 	errorClient.Track("error_test", map[string]any{"shouldFail": true}, nil)
 	fmt.Println("✅ Tracked event to invalid endpoint (check console for retries)\n")
@@ -239,10 +233,7 @@ func testInvalidEndpoint() {
 
 func initClient() {
 	fmt.Println("\n🔄 Initialize Client")
-	if err := client.Init(); err != nil {
-		fmt.Printf("❌ Error initializing client: %v\n\n", err)
-		return
-	}
+	client.Init()
 	fmt.Println("✅ Client initialized\n")
 }
 

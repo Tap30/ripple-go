@@ -23,3 +23,8 @@ func (n *NoOpStorageAdapter) Load() ([]Event, error) {
 func (n *NoOpStorageAdapter) Clear() error {
 	return nil
 }
+
+// Close does nothing and always returns nil.
+func (n *NoOpStorageAdapter) Close() error {
+	return nil
+}

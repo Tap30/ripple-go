@@ -30,6 +30,7 @@ type StorageAdapter interface {
     Save(events []Event) error
     Load() ([]Event, error)
     Clear() error
+    Close() error
 }
 ```
 
@@ -135,6 +136,67 @@ func (f *FileStorage) Clear() error {
         return err
     }
     return nil
+}
+
+func (f *FileStorage) Close() error {
+    // No persistent connections for file storage
+    return nil
+}
+```
+
+### Example: Redis Storage Adapter
+
+```go
+package main
+
+import (
+    "context"
+    "encoding/json"
+    "github.com/Tap30/ripple-go/adapters"
+    "github.com/redis/go-redis/v9"
+)
+
+type RedisStorage struct {
+    client *redis.Client
+    key    string
+}
+
+func NewRedisStorage(addr, key string) *RedisStorage {
+    return &RedisStorage{
+        client: redis.NewClient(&redis.Options{Addr: addr}),
+        key:    key,
+    }
+}
+
+func (r *RedisStorage) Save(events []adapters.Event) error {
+    data, err := json.Marshal(events)
+    if err != nil {
+        return err
+    }
+    return r.client.Set(context.Background(), r.key, data, 0).Err()
+}
+
+func (r *RedisStorage) Load() ([]adapters.Event, error) {
+    data, err := r.client.Get(context.Background(), r.key).Result()
+    if err == redis.Nil {
+        return []adapters.Event{}, nil
+    }
+    if err != nil {
+        return nil, err
+    }
+    var events []adapters.Event
+    if err := json.Unmarshal([]byte(data), &events); err != nil {
+        return nil, err
+    }
+    return events, nil
+}
+
+func (r *RedisStorage) Clear() error {
+    return r.client.Del(context.Background(), r.key).Err()
+}
+
+func (r *RedisStorage) Close() error {
+    return r.client.Close()
 }
 ```
 

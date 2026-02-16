@@ -129,7 +129,7 @@ Configuration validation:
 
 ### Client Methods
 
-#### `Init() error`
+#### `Init()`
 
 Initializes the client and restores persisted events. Uses double-checked locking for thread safety. Resets the disposed state, so calling `Init()` after `Dispose()` re-enables the client.
 
