@@ -1,29 +1,27 @@
-package adapters
+package main
 
 import (
 	"encoding/json"
 	"os"
+
+	"github.com/Tap30/ripple-go/adapters"
 )
 
-// FileStorageAdapter is the default storage adapter implementation using file system.
-// Stores events as JSON in a file.
+// FileStorageAdapter stores events as JSON in a file.
 type FileStorageAdapter struct {
 	filepath string
 }
 
 // Ensure FileStorageAdapter implements StorageAdapter interface
-var _ StorageAdapter = (*FileStorageAdapter)(nil)
+var _ adapters.StorageAdapter = (*FileStorageAdapter)(nil)
 
 // NewFileStorageAdapter creates a new FileStorageAdapter instance.
-//
-// Parameters:
-//   - filepath: Path to the file where events will be stored
-func NewFileStorageAdapter(filepath string) StorageAdapter {
+func NewFileStorageAdapter(filepath string) adapters.StorageAdapter {
 	return &FileStorageAdapter{filepath: filepath}
 }
 
 // Save persists events to a JSON file.
-func (f *FileStorageAdapter) Save(events []Event) error {
+func (f *FileStorageAdapter) Save(events []adapters.Event) error {
 	data, err := json.Marshal(events)
 	if err != nil {
 		return err
@@ -33,15 +31,15 @@ func (f *FileStorageAdapter) Save(events []Event) error {
 
 // Load retrieves events from a JSON file.
 // Returns empty array if file doesn't exist.
-func (f *FileStorageAdapter) Load() ([]Event, error) {
+func (f *FileStorageAdapter) Load() ([]adapters.Event, error) {
 	data, err := os.ReadFile(f.filepath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []Event{}, nil
+			return []adapters.Event{}, nil
 		}
 		return nil, err
 	}
-	var events []Event
+	var events []adapters.Event
 	if err := json.Unmarshal(data, &events); err != nil {
 		return nil, err
 	}
@@ -54,5 +52,10 @@ func (f *FileStorageAdapter) Clear() error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+	return nil
+}
+
+// Close does nothing for file storage (no persistent connections).
+func (f *FileStorageAdapter) Close() error {
 	return nil
 }

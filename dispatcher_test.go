@@ -100,6 +100,8 @@ type mockStorageAdapter struct {
 	err        error
 	clearCalls int
 	clearErr   error
+	closeErr   error
+	closeCalls int
 }
 
 func (m *mockStorageAdapter) Save(events []Event) error {
@@ -130,6 +132,13 @@ func (m *mockStorageAdapter) Clear() error {
 	}
 	m.saved = nil
 	return nil
+}
+
+func (m *mockStorageAdapter) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.closeCalls++
+	return m.closeErr
 }
 
 func (m *mockStorageAdapter) getSaved() []Event {
@@ -833,4 +842,52 @@ func TestDispatcher_LogStorageErrorWithQuotaExceeded(t *testing.T) {
 	if logger.warnCount == 0 {
 		t.Error("expected warning log for quota exceeded error")
 	}
+}
+
+func TestDispatcher_CloseStorageOnDispose(t *testing.T) {
+	t.Run("should call Close on storage adapter", func(t *testing.T) {
+		httpAdapter := &mockHTTPAdapter{}
+		storageAdapter := &mockStorageAdapter{}
+		logger := &mockLogger{}
+		d := NewDispatcher(DispatcherConfig{
+			APIKey:        "test-key",
+			APIKeyHeader:  "X-API-Key",
+			Endpoint:      "http://test.com",
+			FlushInterval: 10 * time.Second,
+			MaxBatchSize:  10,
+			MaxRetries:    3,
+		}, httpAdapter, storageAdapter, logger)
+
+		d.Restore()
+		d.Dispose()
+
+		if storageAdapter.closeCalls != 1 {
+			t.Errorf("expected 1 close call, got %d", storageAdapter.closeCalls)
+		}
+	})
+
+	t.Run("should log error if Close fails", func(t *testing.T) {
+		httpAdapter := &mockHTTPAdapter{}
+		storageAdapter := &mockStorageAdapter{closeErr: errors.New("close failed")}
+		logger := &mockLogger{}
+		d := NewDispatcher(DispatcherConfig{
+			APIKey:        "test-key",
+			APIKeyHeader:  "X-API-Key",
+			Endpoint:      "http://test.com",
+			FlushInterval: 10 * time.Second,
+			MaxBatchSize:  10,
+			MaxRetries:    3,
+		}, httpAdapter, storageAdapter, logger)
+
+		d.Restore()
+		d.Dispose()
+
+		if storageAdapter.closeCalls != 1 {
+			t.Errorf("expected 1 close call, got %d", storageAdapter.closeCalls)
+		}
+
+		if logger.errCount == 0 {
+			t.Error("expected error log for close failure")
+		}
+	})
 }

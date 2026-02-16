@@ -102,19 +102,18 @@ func NewClient(config ClientConfig) (*Client, error) {
 	return client, nil
 }
 
-func (c *Client) Init() error {
+func (c *Client) Init() {
 	c.initMu.Lock()
 	defer c.initMu.Unlock()
 
 	if c.initialized {
-		return nil
+		return
 	}
 
 	c.dispatcher.Restore()
 	c.disposed = false
 	c.initialized = true
 	c.loggerAdapter.Info("Client initialized successfully")
-	return nil
 }
 
 func (c *Client) SetMetadata(key string, value any) {
@@ -147,9 +146,7 @@ func (c *Client) Track(name string, payload, metadata map[string]any) error {
 		return nil
 	}
 
-	if err := c.Init(); err != nil {
-		return err
-	}
+	c.Init()
 
 	// Merge shared metadata with event-specific metadata
 	eventMetadata := c.metadataManager.GetAll()

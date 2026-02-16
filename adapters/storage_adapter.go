@@ -20,4 +20,10 @@ type StorageAdapter interface {
 	//
 	// Returns error if clear fails.
 	Clear() error
+
+	// Close releases any resources held by the storage adapter.
+	// Called when the client is disposed.
+	//
+	// Returns error if close fails.
+	Close() error
 }

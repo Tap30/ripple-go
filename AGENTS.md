@@ -236,8 +236,11 @@ type StorageAdapter interface {
     Save(events []Event) error
     Load() ([]Event, error)
     Clear() error
+    Close() error
 }
 ```
+
+The `Close()` method is called when the client is disposed, allowing storage adapters to release resources (e.g., close database connections, Redis clients, file handles).
 
 #### Logger Adapter
 

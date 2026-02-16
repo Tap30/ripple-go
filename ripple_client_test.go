@@ -2,7 +2,6 @@ package ripple
 
 import (
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -149,6 +148,23 @@ func TestClient_ConfigValidation(t *testing.T) {
 			t.Fatal("expected error when MaxBufferSize < MaxBatchSize")
 		}
 	})
+
+	t.Run("should accept custom API key header", func(t *testing.T) {
+		customHeader := "Authorization"
+		client, err := NewClient(ClientConfig{
+			APIKey:         "test-key",
+			Endpoint:       "http://test.com",
+			APIKeyHeader:   &customHeader,
+			HTTPAdapter:    &mockHTTPAdapter{},
+			StorageAdapter: &mockStorageAdapter{},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if client == nil {
+			t.Fatal("expected client to be created")
+		}
+	})
 }
 
 func TestClient_TrackAutoInit(t *testing.T) {
@@ -165,9 +181,7 @@ func TestClient_TrackAutoInit(t *testing.T) {
 	t.Run("should allow tracking after explicit Init", func(t *testing.T) {
 		client := createTestClient()
 
-		if err := client.Init(); err != nil {
-			t.Fatalf("failed to init: %v", err)
-		}
+		client.Init()
 		defer client.Dispose()
 
 		err := client.Track("test_event", nil, nil)
@@ -181,9 +195,7 @@ func TestClient_DisposedBehavior(t *testing.T) {
 	t.Run("should silently drop events after dispose", func(t *testing.T) {
 		client := createTestClient()
 
-		if err := client.Init(); err != nil {
-			t.Fatalf("failed to init: %v", err)
-		}
+		client.Init()
 
 		client.Dispose()
 
@@ -197,16 +209,12 @@ func TestClient_DisposedBehavior(t *testing.T) {
 	t.Run("should re-enable after explicit Init", func(t *testing.T) {
 		client := createTestClient()
 
-		if err := client.Init(); err != nil {
-			t.Fatalf("failed to init: %v", err)
-		}
+		client.Init()
 
 		client.Dispose()
 
 		// Re-init should work
-		if err := client.Init(); err != nil {
-			t.Fatalf("failed to re-init: %v", err)
-		}
+		client.Init()
 		defer client.Dispose()
 
 		err := client.Track("test_event", nil, nil)
@@ -224,9 +232,7 @@ func TestClient_DisposedBehavior(t *testing.T) {
 	t.Run("should work multiple times", func(t *testing.T) {
 		client := createTestClient()
 
-		if err := client.Init(); err != nil {
-			t.Fatalf("failed to init: %v", err)
-		}
+		client.Init()
 
 		client.Dispose()
 		client.Dispose()
@@ -235,9 +241,7 @@ func TestClient_DisposedBehavior(t *testing.T) {
 	t.Run("dispose should clear metadata", func(t *testing.T) {
 		client := createTestClient()
 
-		if err := client.Init(); err != nil {
-			t.Fatalf("failed to init: %v", err)
-		}
+		client.Init()
 
 		client.SetMetadata("key", "value")
 		client.Dispose()
@@ -292,9 +296,7 @@ func TestClient_FlushEdgeCases(t *testing.T) {
 	t.Run("should work with empty queue", func(t *testing.T) {
 		client := createTestClient()
 
-		if err := client.Init(); err != nil {
-			t.Fatalf("failed to init: %v", err)
-		}
+		client.Init()
 		defer client.Dispose()
 
 		client.Flush()
@@ -318,9 +320,7 @@ func TestClient_GetSessionId(t *testing.T) {
 func TestClient_Track(t *testing.T) {
 	client := createTestClient()
 
-	if err := client.Init(); err != nil {
-		t.Fatalf("failed to init: %v", err)
-	}
+	client.Init()
 	defer client.Dispose()
 
 	client.SetMetadata("userId", "123")
@@ -336,9 +336,7 @@ func TestClient_Track(t *testing.T) {
 func TestClient_TrackWithMetadata(t *testing.T) {
 	client := createTestClient()
 
-	if err := client.Init(); err != nil {
-		t.Fatalf("failed to init: %v", err)
-	}
+	client.Init()
 	defer client.Dispose()
 
 	metadata := map[string]any{"schemaVersion": "1.0.0"}
@@ -360,9 +358,7 @@ func TestClient_Flush(t *testing.T) {
 		StorageAdapter: &mockStorageAdapter{},
 	})
 
-	if err := client.Init(); err != nil {
-		t.Fatalf("failed to init: %v", err)
-	}
+	client.Init()
 	defer client.Dispose()
 
 	client.Track("test_event", nil, nil)
@@ -391,16 +387,10 @@ func TestClient_InitEdgeCases(t *testing.T) {
 	t.Run("should handle init when already initialized", func(t *testing.T) {
 		client := createTestClient()
 
-		err := client.Init()
-		if err != nil {
-			t.Fatalf("unexpected error on first init: %v", err)
-		}
+		client.Init()
 		defer client.Dispose()
 
-		err = client.Init()
-		if err != nil {
-			t.Fatalf("unexpected error on second init: %v", err)
-		}
+		client.Init()
 	})
 
 	t.Run("should handle concurrent init calls safely", func(t *testing.T) {
@@ -445,9 +435,7 @@ func TestClient_InitEdgeCases(t *testing.T) {
 func TestClient_SharedMetadataMerging(t *testing.T) {
 	client := createTestClient()
 
-	if err := client.Init(); err != nil {
-		t.Fatalf("failed to init: %v", err)
-	}
+	client.Init()
 	defer client.Dispose()
 
 	client.SetMetadata("userId", "123")
@@ -481,9 +469,7 @@ func TestClient_SharedMetadataMerging(t *testing.T) {
 func TestClient_SharedMetadataOverride(t *testing.T) {
 	client := createTestClient()
 
-	if err := client.Init(); err != nil {
-		t.Fatalf("failed to init: %v", err)
-	}
+	client.Init()
 	defer client.Dispose()
 
 	client.SetMetadata("environment", "test")
@@ -517,9 +503,7 @@ func TestClient_SharedMetadataOverride(t *testing.T) {
 func TestClient_TrackWithOnlySharedMetadata(t *testing.T) {
 	client := createTestClient()
 
-	if err := client.Init(); err != nil {
-		t.Fatalf("failed to init: %v", err)
-	}
+	client.Init()
 	defer client.Dispose()
 
 	client.SetMetadata("userId", "123")
@@ -548,9 +532,7 @@ func TestClient_TrackWithOnlySharedMetadata(t *testing.T) {
 func TestClient_TrackWithNoMetadata(t *testing.T) {
 	client := createTestClient()
 
-	if err := client.Init(); err != nil {
-		t.Fatalf("failed to init: %v", err)
-	}
+	client.Init()
 	defer client.Dispose()
 
 	client.Track("test_event", nil, nil)
@@ -616,10 +598,7 @@ func TestClient_StorageAdapterFailures(t *testing.T) {
 	}
 
 	// Init should succeed even with storage error (restore logs, doesn't fail)
-	err = client.Init()
-	if err != nil {
-		t.Fatalf("Init should succeed even with storage error: %v", err)
-	}
+	client.Init()
 
 	// Track should work even if storage fails
 	storageAdapter.err = errors.New("save error")
@@ -628,41 +607,6 @@ func TestClient_StorageAdapterFailures(t *testing.T) {
 	}
 
 	client.Dispose()
-}
-
-func TestFileStorageAdapter_EdgeCases(t *testing.T) {
-	t.Run("should handle load when file does not exist", func(t *testing.T) {
-		adapter := adapters.NewFileStorageAdapter("nonexistent_file.json")
-
-		events, err := adapter.Load()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		if len(events) != 0 {
-			t.Fatalf("expected empty events, got %d", len(events))
-		}
-	})
-
-	t.Run("should handle load with invalid JSON", func(t *testing.T) {
-		filename := "invalid.json"
-		adapter := adapters.NewFileStorageAdapter(filename)
-
-		err := os.WriteFile(filename, []byte("invalid json"), 0o644)
-		if err != nil {
-			t.Fatalf("failed to write test file: %v", err)
-		}
-		defer os.Remove(filename)
-
-		events, err := adapter.Load()
-		if err == nil {
-			t.Fatal("expected error for invalid JSON")
-		}
-
-		if events != nil {
-			t.Fatal("expected nil events on error")
-		}
-	})
 }
 
 func TestClient_Close(t *testing.T) {

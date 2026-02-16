@@ -43,6 +43,15 @@ func TestNoOpStorageAdapter_Clear(t *testing.T) {
 	}
 }
 
+func TestNoOpStorageAdapter_Close(t *testing.T) {
+	adapter := NewNoOpStorageAdapter()
+
+	err := adapter.Close()
+	if err != nil {
+		t.Errorf("Close should always return nil, got: %v", err)
+	}
+}
+
 func TestNoOpStorageAdapter_Interface(t *testing.T) {
 	var _ StorageAdapter = (*NoOpStorageAdapter)(nil)
 }

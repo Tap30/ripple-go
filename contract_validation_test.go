@@ -67,10 +67,10 @@ func TestContractCompliance(t *testing.T) {
 		client, _ := NewClient(createTestConfig())
 		clientValue := reflect.ValueOf(client)
 
-		// Init() error
+		// Init()
 		initType := clientValue.MethodByName("Init").Type()
-		if initType.NumIn() != 0 || initType.NumOut() != 1 {
-			t.Error("Init should take no parameters and return error")
+		if initType.NumIn() != 0 || initType.NumOut() != 0 {
+			t.Error("Init should take no parameters and return nothing")
 		}
 
 		// Track(string, map[string]any, map[string]any) error
