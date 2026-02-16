@@ -253,7 +253,7 @@ func TestClient_TrackValidation(t *testing.T) {
 	t.Run("should reject empty event name", func(t *testing.T) {
 		client := createTestClient()
 
-		err := client.Track("")
+		err := client.Track("", nil, nil)
 		if err == nil {
 			t.Fatal("expected error for empty event name")
 		}
@@ -420,7 +420,7 @@ func TestClient_InitEdgeCases(t *testing.T) {
 		}
 
 		// Verify initialization by tracking an event (uses public API only)
-		err := client.Track("test_event")
+		err := client.Track("test_event", nil, nil)
 		if err != nil {
 			t.Fatalf("expected initialized client to track events, got error: %v", err)
 		}
@@ -478,35 +478,6 @@ func TestClient_SharedMetadataMerging(t *testing.T) {
 	}
 }
 
-func TestClient_TrackWithInvalidPayload(t *testing.T) {
-	client := createTestClient()
-
-	if err := client.Init(); err != nil {
-		t.Fatalf("failed to init: %v", err)
-	}
-	defer client.Dispose()
-
-	err := client.Track("test_event", "invalid_payload")
-	if err == nil {
-		t.Error("expected error for invalid payload type")
-	}
-}
-
-func TestClient_TrackWithInvalidMetadata(t *testing.T) {
-	client := createTestClient()
-
-	if err := client.Init(); err != nil {
-		t.Fatalf("failed to init: %v", err)
-	}
-	defer client.Dispose()
-
-	// Valid payload, invalid metadata type (should be silently ignored)
-	err := client.Track("test_event", map[string]any{"key": "value"}, "invalid_metadata")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-}
-
 func TestClient_SharedMetadataOverride(t *testing.T) {
 	client := createTestClient()
 
@@ -552,7 +523,7 @@ func TestClient_TrackWithOnlySharedMetadata(t *testing.T) {
 	defer client.Dispose()
 
 	client.SetMetadata("userId", "123")
-	client.Track("test_event")
+	client.Track("test_event", nil, nil)
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -582,7 +553,7 @@ func TestClient_TrackWithNoMetadata(t *testing.T) {
 	}
 	defer client.Dispose()
 
-	client.Track("test_event")
+	client.Track("test_event", nil, nil)
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -593,8 +564,8 @@ func TestClient_TrackWithNoMetadata(t *testing.T) {
 			return
 		}
 
-		if event.Metadata != nil {
-			t.Errorf("expected metadata to be nil, got %v", event.Metadata)
+		if len(event.Metadata) != 0 {
+			t.Errorf("expected metadata to be empty, got %v", event.Metadata)
 		}
 	} else {
 		t.Error("expected event to be in queue")

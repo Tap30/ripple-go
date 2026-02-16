@@ -152,7 +152,7 @@ func (d *Dispatcher) applyQueueLimit(events []Event) []Event {
 // sendWithRetry sends events with exponential backoff retry logic.
 // Note: This method never logs headers to prevent API key exposure.
 func (d *Dispatcher) sendWithRetry(ctx context.Context, events []Event, attempt int) {
-	resp, err := d.httpAdapter.SendWithContext(ctx, d.config.Endpoint, events, d.headers, d.config.APIKeyHeader)
+	resp, err := d.httpAdapter.SendWithContext(ctx, d.config.Endpoint, events, d.headers)
 
 	if err != nil {
 		d.handleNetworkError(ctx, err, events, attempt)

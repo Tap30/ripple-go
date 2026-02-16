@@ -129,7 +129,15 @@ func (c *Client) GetSessionId() *string {
 	return nil
 }
 
-func (c *Client) Track(name string, args ...any) error {
+// Track tracks an event with optional payload and metadata.
+// Automatically initializes the client if not already initialized.
+// If the client is disposed, events are silently dropped.
+//
+// Parameters:
+//   - name: Event name/identifier (required, cannot be empty)
+//   - payload: Event data payload (optional, pass nil if not needed)
+//   - metadata: Event-specific metadata (optional, pass nil if not needed)
+func (c *Client) Track(name string, payload map[string]any, metadata map[string]any) error {
 	if name == "" {
 		return errors.New("event name cannot be empty")
 	}
@@ -143,33 +151,15 @@ func (c *Client) Track(name string, args ...any) error {
 		return err
 	}
 
-	var payload map[string]any
-	var metadata map[string]any
-
-	if len(args) > 0 && args[0] != nil {
-		if p, ok := args[0].(map[string]any); ok {
-			payload = p
-		} else {
-			return errors.New("payload must be of type map[string]any or nil")
-		}
-	}
-	if len(args) > 1 {
-		if meta, ok := args[1].(map[string]any); ok {
-			metadata = meta
-		}
-	}
-
 	// Merge shared metadata with event-specific metadata
-	sharedMetadata := c.metadataManager.GetAll()
-	var eventMetadata map[string]any
-
-	if len(sharedMetadata) > 0 || len(metadata) > 0 {
-		eventMetadata = make(map[string]any)
-		for k, v := range sharedMetadata {
-			eventMetadata[k] = v
-		}
-		for k, v := range metadata {
-			eventMetadata[k] = v
+	eventMetadata := c.metadataManager.GetAll()
+	if len(metadata) > 0 {
+		if len(eventMetadata) == 0 {
+			eventMetadata = metadata
+		} else {
+			for k, v := range metadata {
+				eventMetadata[k] = v
+			}
 		}
 	}
 

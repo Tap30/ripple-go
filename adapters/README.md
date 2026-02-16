@@ -10,8 +10,8 @@ Interface for HTTP communication. Implement this to use custom HTTP clients.
 
 ```go
 type HTTPAdapter interface {
-    Send(endpoint string, events []Event, headers map[string]string, apiKeyHeader string) (*HTTPResponse, error)
-    SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string, apiKeyHeader string) (*HTTPResponse, error)
+    Send(endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error)
+    SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error)
 }
 ```
 
@@ -85,11 +85,11 @@ import (
 
 type MyHTTPAdapter struct{}
 
-func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string, apiKeyHeader string) (*adapters.HTTPResponse, error) {
-    return a.SendWithContext(context.Background(), endpoint, events, headers, apiKeyHeader)
+func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
+    return a.SendWithContext(context.Background(), endpoint, events, headers)
 }
 
-func (a *MyHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []adapters.Event, headers map[string]string, apiKeyHeader string) (*adapters.HTTPResponse, error) {
+func (a *MyHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
     // your custom HTTP logic
     return &adapters.HTTPResponse{Status: 200}, nil
 }

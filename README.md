@@ -75,7 +75,7 @@ func main() {
     // Track events (auto-initializes on first call)
     client.Track("page_view", map[string]any{
         "page": "/home",
-    })
+    }, nil)
 
     // Track with event-specific metadata
     client.Track("user_action", map[string]any{
@@ -135,13 +135,19 @@ Initializes the client and restores persisted events. Uses double-checked lockin
 
 Note: `Track()` automatically calls `Init()`, so explicit initialization is optional.
 
-#### `Track(name string, args ...any) error`
+#### `Track(name string, payload map[string]any, metadata map[string]any) error`
 
-Tracks an event with optional payload and metadata. Supports three usage patterns:
+Tracks an event with optional payload and metadata.
 
-- `Track(name)` - Simple event tracking
-- `Track(name, payload)` - Event with payload
-- `Track(name, payload, metadata)` - Event with payload and metadata
+Parameters:
+- `name` - Event name/identifier (required, cannot be empty)
+- `payload` - Event data payload (optional, pass `nil` if not needed)
+- `metadata` - Event-specific metadata (optional, pass `nil` if not needed)
+
+Usage examples:
+- `Track("page_view", nil, nil)` - Simple event tracking
+- `Track("click", map[string]any{"button": "submit"}, nil)` - Event with payload
+- `Track("purchase", payload, map[string]any{"version": "1.0"})` - Event with payload and metadata
 
 If the client is disposed, events are silently dropped (returns nil). Otherwise, auto-calls `Init()` if not yet initialized.
 
@@ -183,11 +189,11 @@ import (
 
 type MyHTTPAdapter struct{}
 
-func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string, apiKeyHeader string) (*adapters.HTTPResponse, error) {
-    return a.SendWithContext(context.Background(), endpoint, events, headers, apiKeyHeader)
+func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
+    return a.SendWithContext(context.Background(), endpoint, events, headers)
 }
 
-func (a *MyHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []adapters.Event, headers map[string]string, apiKeyHeader string) (*adapters.HTTPResponse, error) {
+func (a *MyHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
     // custom HTTP logic
     return &adapters.HTTPResponse{Status: 200}, nil
 }

@@ -54,11 +54,11 @@ type mockHTTPAdapter struct {
 	networkError bool
 }
 
-func (m *mockHTTPAdapter) Send(endpoint string, events []Event, headers map[string]string, apiKeyHeader string) (*HTTPResponse, error) {
-	return m.SendWithContext(context.Background(), endpoint, events, headers, apiKeyHeader)
+func (m *mockHTTPAdapter) Send(endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error) {
+	return m.SendWithContext(context.Background(), endpoint, events, headers)
 }
 
-func (m *mockHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string, apiKeyHeader string) (*HTTPResponse, error) {
+func (m *mockHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error) {
 	m.mu.Lock()
 	m.calls++
 	fail := m.fail

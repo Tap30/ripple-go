@@ -162,7 +162,7 @@ Responsibilities:
 Key methods:
 
 * `Init()` - Initialize client and restore persisted events (auto-called by Track)
-* `Track(name, ...args)` - Track event with optional payload and metadata
+* `Track(name, payload, metadata)` - Track event with optional payload and metadata (both can be nil)
 * `SetMetadata(key, value)` - Set shared metadata attached to all events
 * `GetMetadata()` - Get all shared metadata as map
 * `GetSessionId()` - Returns nil for server environments
@@ -224,8 +224,8 @@ FIFO queue built on Go's `container/list`:
 
 ```go
 type HTTPAdapter interface {
-    Send(endpoint string, events []Event, headers map[string]string, apiKeyHeader string) (*HTTPResponse, error)
-    SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string, apiKeyHeader string) (*HTTPResponse, error)
+    Send(endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error)
+    SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error)
 }
 ```
 
@@ -326,7 +326,7 @@ defer client.Dispose()
 client.SetMetadata("userId", "123")
 
 // Track events (auto-initializes on first call)
-client.Track("page_view", map[string]any{"page": "/home"})
+client.Track("page_view", map[string]any{"page": "/home"}, nil)
 
 // Track with event-specific metadata
 client.Track("user_action", map[string]any{
