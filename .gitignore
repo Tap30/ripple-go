@@ -33,10 +33,14 @@ Thumbs.db
 ripple_events.json
 test_*.json
 error_events.json
+ai-ctx
+.agents
+.kilocode
+.kiro
 
 # Playground binaries
 playground/client
 playground/server
-ai-ctx
+
 # Added by goreleaser init:
 dist/
