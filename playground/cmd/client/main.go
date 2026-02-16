@@ -81,8 +81,10 @@ func main() {
 		case "13":
 			testTimeoutScenario()
 		case "14":
-			disposeClient()
+			initClient()
 		case "15":
+			disposeClient()
+		case "16":
 			fmt.Println("👋 Goodbye!")
 			client.Dispose()
 			return
@@ -118,8 +120,9 @@ func showMenu() {
 	fmt.Println("13. Test Timeout Scenario")
 	fmt.Println()
 	fmt.Println("🔄 Lifecycle Management")
-	fmt.Println("14. Dispose Client")
-	fmt.Println("15. Exit")
+	fmt.Println("14. Initialize Client")
+	fmt.Println("15. Dispose Client")
+	fmt.Println("16. Exit")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }
 
@@ -232,6 +235,15 @@ func testInvalidEndpoint() {
 
 	errorClient.Track("error_test", map[string]any{"shouldFail": true}, nil)
 	fmt.Println("✅ Tracked event to invalid endpoint (check console for retries)\n")
+}
+
+func initClient() {
+	fmt.Println("\n🔄 Initialize Client")
+	if err := client.Init(); err != nil {
+		fmt.Printf("❌ Error initializing client: %v\n\n", err)
+		return
+	}
+	fmt.Println("✅ Client initialized\n")
 }
 
 func disposeClient() {
