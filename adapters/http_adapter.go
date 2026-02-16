@@ -16,7 +16,7 @@ type HTTPAdapter interface {
 	// Parameters:
 	//   - endpoint: The API endpoint URL
 	//   - events: Array of events to send
-	//   - headers: Optional custom headers to merge with defaults
+	//   - headers: HTTP headers including API key
 	//
 	// Returns HTTP response or error.
 	Send(endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error)
@@ -27,7 +27,7 @@ type HTTPAdapter interface {
 	//   - ctx: Context for timeout/cancellation
 	//   - endpoint: The API endpoint URL
 	//   - events: Array of events to send
-	//   - headers: Optional custom headers to merge with defaults
+	//   - headers: HTTP headers including API key
 	//
 	// Returns HTTP response or error.
 	SendWithContext(ctx context.Context, endpoint string, events []Event, headers map[string]string) (*HTTPResponse, error)

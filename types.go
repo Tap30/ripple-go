@@ -1,6 +1,7 @@
 package ripple
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Tap30/ripple-go/adapters"
@@ -31,6 +32,9 @@ type (
 
 	// LogLevel represents the severity level for logging.
 	LogLevel = adapters.LogLevel
+
+	// StorageQuotaExceededError indicates that the storage quota has been exceeded.
+	StorageQuotaExceededError = adapters.StorageQuotaExceededError
 )
 
 // HTTPError represents an HTTP error response.
@@ -40,7 +44,7 @@ type HTTPError struct {
 }
 
 func (e *HTTPError) Error() string {
-	return "HTTP request failed"
+	return fmt.Sprintf("HTTP request failed with status %d", e.Status)
 }
 
 type ClientConfig struct {
@@ -111,10 +115,6 @@ type DispatcherConfig struct {
 
 	// FlushInterval controls how often queued events are flushed.
 	FlushInterval time.Duration
-
-	// FlushTimeout is the maximum time allowed for a flush operation.
-	// If zero, no timeout is applied.
-	FlushTimeout time.Duration
 
 	// MaxBatchSize is the maximum number of events per batch.
 	MaxBatchSize int

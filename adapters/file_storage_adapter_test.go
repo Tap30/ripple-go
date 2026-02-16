@@ -38,17 +38,29 @@ func TestFileStorageAdapter_LoadNonExistent(t *testing.T) {
 }
 
 func TestFileStorageAdapter_Clear(t *testing.T) {
-	filepath := "test_clear.json"
-	adapter := NewFileStorageAdapter(filepath)
-	adapter.Save([]Event{{Name: "test"}})
+	t.Run("should clear existing file", func(t *testing.T) {
+		filepath := "test_clear.json"
+		adapter := NewFileStorageAdapter(filepath)
+		adapter.Save([]Event{{Name: "test"}})
 
-	if err := adapter.Clear(); err != nil {
-		t.Fatalf("failed to clear: %v", err)
-	}
+		if err := adapter.Clear(); err != nil {
+			t.Fatalf("failed to clear: %v", err)
+		}
 
-	if _, err := os.Stat(filepath); !os.IsNotExist(err) {
-		t.Fatal("expected file to be deleted")
-	}
+		if _, err := os.Stat(filepath); !os.IsNotExist(err) {
+			t.Fatal("expected file to be deleted")
+		}
+	})
+
+	t.Run("should not error when file does not exist", func(t *testing.T) {
+		filepath := "nonexistent_file.json"
+		adapter := NewFileStorageAdapter(filepath)
+
+		// Clear should succeed even if file doesn't exist
+		if err := adapter.Clear(); err != nil {
+			t.Fatalf("expected no error when clearing non-existent file, got: %v", err)
+		}
+	})
 }
 
 func TestFileStorageAdapter_SaveError(t *testing.T) {
@@ -88,20 +100,33 @@ func TestFileStorageAdapter_SaveMarshalError(t *testing.T) {
 }
 
 func TestFileStorageAdapter_LoadPermissionError(t *testing.T) {
-	// Create a file in a directory that doesn't exist
-	adapter := NewFileStorageAdapter("/nonexistent/directory/file.json")
+	if os.Getuid() == 0 {
+		t.Skip("Skipping permission test when running as root")
+	}
 
-	// This should return empty array for nonexistent file/directory
-	events, err := adapter.Load()
+	filepath := "test_permission.json"
+	defer os.Remove(filepath)
+
+	// Create a file
+	err := os.WriteFile(filepath, []byte("[]"), 0o644)
 	if err != nil {
-		// If there's an error, it should be handled gracefully
-		if !os.IsNotExist(err) {
-			t.Errorf("unexpected error type: %v", err)
-		}
-	} else {
-		// Should return empty array
-		if len(events) != 0 {
-			t.Errorf("expected empty array, got %d events", len(events))
-		}
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Remove read permissions
+	err = os.Chmod(filepath, 0o000)
+	if err != nil {
+		t.Fatalf("failed to change permissions: %v", err)
+	}
+	defer os.Chmod(filepath, 0o644) // Restore permissions for cleanup
+
+	adapter := NewFileStorageAdapter(filepath)
+	events, err := adapter.Load()
+
+	if err == nil {
+		t.Fatal("expected error for permission denied")
+	}
+	if events != nil {
+		t.Error("expected nil events on permission error")
 	}
 }

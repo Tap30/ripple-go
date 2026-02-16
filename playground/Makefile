@@ -8,7 +8,7 @@ server:
 
 client:
 	@echo "🎯 Starting interactive client..."
-	@$(GO) run cmd/client/main.go
+	@$(GO) run cmd/client/*.go
 
 build:
 	@echo "🔨 Building binaries..."

@@ -17,3 +17,17 @@ type EventMetadata = map[string]any
 type Platform struct {
 	Type string `json:"type"`
 }
+
+// StorageQuotaExceededError indicates that the storage quota has been exceeded.
+// Storage adapters should return this error when they cannot save events due to quota limits.
+// The dispatcher will log this as a warning instead of an error.
+type StorageQuotaExceededError struct {
+	Message string
+}
+
+func (e *StorageQuotaExceededError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	return "storage quota exceeded"
+}

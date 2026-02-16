@@ -81,11 +81,12 @@ func main() {
 		case "13":
 			testTimeoutScenario()
 		case "14":
-			disposeClient()
+			initClient()
 		case "15":
+			disposeClient()
+		case "16":
 			fmt.Println("👋 Goodbye!")
-			// Persist events to storage without flushing to server
-			client.DisposeWithoutFlush()
+			client.Dispose()
 			return
 		default:
 			fmt.Println("❌ Invalid option. Please try again.\n")
@@ -119,8 +120,9 @@ func showMenu() {
 	fmt.Println("13. Test Timeout Scenario")
 	fmt.Println()
 	fmt.Println("🔄 Lifecycle Management")
-	fmt.Println("14. Dispose Client")
-	fmt.Println("15. Exit")
+	fmt.Println("14. Initialize Client")
+	fmt.Println("15. Dispose Client")
+	fmt.Println("16. Exit")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }
 
@@ -132,7 +134,7 @@ func readInput(prompt string) string {
 
 func trackSimpleEvent() {
 	fmt.Println("\n📊 Track Simple Event")
-	if err := client.Track("button_click"); err != nil {
+	if err := client.Track("button_click", nil, nil); err != nil {
 		fmt.Printf("❌ Error tracking event: %v\n\n", err)
 		return
 	}
@@ -146,7 +148,10 @@ func trackEventWithPayload() {
 		"target":    "button",
 		"timestamp": time.Now().Unix(),
 	}
-	client.Track("user_action", payload)
+	if err := client.Track("user_action", payload, nil); err != nil {
+		fmt.Printf("❌ Error tracking event: %v\n\n", err)
+		return
+	}
 	fmt.Println("✅ Tracked: user_action with payload\n")
 }
 
@@ -157,7 +162,10 @@ func trackEventWithMetadata() {
 		"fields": 5,
 	}
 	metadata := map[string]any{"schemaVersion": "1.0.0"}
-	client.Track("form_submit", payload, metadata)
+	if err := client.Track("form_submit", payload, metadata); err != nil {
+		fmt.Printf("❌ Error tracking event: %v\n\n", err)
+		return
+	}
 	fmt.Println("✅ Tracked: form_submit with metadata\n")
 }
 
@@ -168,7 +176,10 @@ func trackEventWithCustomMetadata() {
 		"amount":  99.99,
 	}
 	metadata := map[string]any{"schemaVersion": "2.1.0"}
-	client.Track("purchase_completed", payload, metadata)
+	if err := client.Track("purchase_completed", payload, metadata); err != nil {
+		fmt.Printf("❌ Error tracking event: %v\n\n", err)
+		return
+	}
 	fmt.Println("✅ Tracked: purchase_completed with rich metadata\n")
 }
 
@@ -178,16 +189,13 @@ func setSharedMetadata() {
 	key := fmt.Sprintf("key_%d", metadataCounter)
 	value := fmt.Sprintf("value_%d", metadataCounter)
 
-	if err := client.SetMetadata(key, value); err != nil {
-		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
-		return
-	}
+	client.SetMetadata(key, value)
 	fmt.Printf("✅ Shared metadata set: %s = %s\n\n", key, value)
 }
 
 func trackWithSharedMetadata() {
 	fmt.Println("\n🏷️  Track with Shared Metadata")
-	client.Track("metadata_test")
+	client.Track("metadata_test", nil, nil)
 	fmt.Println("✅ Tracked event with shared metadata\n")
 }
 
@@ -195,7 +203,7 @@ func trackMultipleEvents() {
 	fmt.Println("\n📦 Track Multiple Events (Batch Test)")
 	for i := 0; i < 10; i++ {
 		payload := map[string]any{"index": i}
-		client.Track("batch_event", payload)
+		client.Track("batch_event", payload, nil)
 	}
 	fmt.Println("✅ Tracked 10 events (should auto-flush at batch size 5)\n")
 }
@@ -225,8 +233,17 @@ func testInvalidEndpoint() {
 		return
 	}
 
-	errorClient.Track("error_test", map[string]any{"shouldFail": true})
+	errorClient.Track("error_test", map[string]any{"shouldFail": true}, nil)
 	fmt.Println("✅ Tracked event to invalid endpoint (check console for retries)\n")
+}
+
+func initClient() {
+	fmt.Println("\n🔄 Initialize Client")
+	if err := client.Init(); err != nil {
+		fmt.Printf("❌ Error initializing client: %v\n\n", err)
+		return
+	}
+	fmt.Println("✅ Client initialized\n")
 }
 
 func disposeClient() {
@@ -241,10 +258,7 @@ func setMetadata() {
 	key := fmt.Sprintf("key_%d", metadataCounter)
 	value := fmt.Sprintf("value_%d", metadataCounter)
 
-	if err := client.SetMetadata(key, value); err != nil {
-		fmt.Printf("❌ Error setting metadata: %v\n\n", err)
-		return
-	}
+	client.SetMetadata(key, value)
 	fmt.Printf("✅ Metadata set: %s = %s\n\n", key, value)
 }
 
@@ -332,7 +346,7 @@ func testTimeoutScenario() {
 	originalTimeout := httpAdapter.timeout
 	httpAdapter.SetTimeout(1 * time.Millisecond)
 
-	client.Track("timeout_test", map[string]any{"shouldTimeout": true})
+	client.Track("timeout_test", map[string]any{"shouldTimeout": true}, nil)
 	client.Flush()
 
 	fmt.Println("✅ Timeout test completed (check logs for timeout errors)")

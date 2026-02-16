@@ -8,8 +8,8 @@
 
 <div align="center">
 
-A high-performance, scalable, and fault-tolerant event tracking TypeScript SDK
-for browsers.
+A high-performance, scalable, and fault-tolerant event tracking Go SDK
+for server-side applications.
 
 </div>
 
@@ -19,14 +19,17 @@ for browsers.
 
 - **Zero Runtime Dependencies** – Built entirely with Go standard library
 - **Thread-Safe** – Concurrent event tracking with mutex protection
+- **Auto-Initialization** – `Track()` automatically calls `Init()` if not yet initialized
+- **Disposal Tracking** – Disposed clients silently drop events; explicit `Init()` re-enables
 - **Automatic Batching** – Efficient event grouping with dynamic rebatching for optimal network usage
+- **One-Shot Timer** – Flush timer fires once per scheduling cycle, not on a repeating interval
 - **Smart Retry Logic** – Intelligent retry behavior based on HTTP status codes:
   - **2xx (Success)**: Clear storage, no retry
   - **4xx (Client Error)**: Drop events, no retry (prevents infinite loops)
   - **5xx (Server Error)**: Retry with exponential backoff, re-queue on max retries
   - **Network Errors**: Retry with exponential backoff, re-queue on max retries
+- **Retry Cancellation** – `Dispose()` aborts in-flight retries via context cancellation
 - **Event Persistence** – Disk-backed storage for reliability
-- **Graceful Shutdown** – Ensures all events are flushed and persisted
 - **Pluggable Adapters** – Custom HTTP and storage implementations
 
 ## Installation
@@ -49,7 +52,6 @@ go get github.com/Tap30/ripple-go@v0.0.1
 package main
 
 import (
-    "time"
     ripple "github.com/Tap30/ripple-go"
     "github.com/Tap30/ripple-go/adapters"
 )
@@ -61,46 +63,26 @@ func main() {
         HTTPAdapter:    adapters.NewNetHTTPAdapter(),
         StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
     })
-
-    // Or use NoOpStorageAdapter if persistence is not needed
-    client, err := ripple.NewClient(ripple.ClientConfig{
-        APIKey:         "your-api-key",
-        Endpoint:       "https://api.example.com/events",
-        HTTPAdapter:    adapters.NewNetHTTPAdapter(),
-        StorageAdapter: adapters.NewNoOpStorageAdapter(),
-    })
     if err != nil {
-        panic(err)
-    }
-
-    if err := client.Init(); err != nil {
         panic(err)
     }
     defer client.Dispose()
 
     // Set global metadata
-    if err := client.SetMetadata("userId", "123"); err != nil {
-        panic(err)
-    }
-    if err := client.SetMetadata("appVersion", "1.0.0"); err != nil {
-        panic(err)
-    }
+    client.SetMetadata("userId", "123")
+    client.SetMetadata("appVersion", "1.0.0")
 
-    // Track events
-    if err := client.Track("page_view", map[string]any{
+    // Track events (auto-initializes on first call)
+    client.Track("page_view", map[string]any{
         "page": "/home",
-    }); err != nil {
-        panic(err)
-    }
+    }, nil)
 
-    // Track with metadata
-    if err := client.Track("user_action", map[string]any{
+    // Track with event-specific metadata
+    client.Track("user_action", map[string]any{
         "button": "submit",
     }, map[string]any{
         "schemaVersion": "1.0.0",
-    }); err != nil {
-        panic(err)
-    }
+    })
 
     // Manually flush
     client.Flush()
@@ -124,59 +106,24 @@ type ClientConfig struct {
 }
 ```
 
-### Understanding `MaxBatchSize` vs `MaxBufferSize`
+Configuration validation:
+- `FlushInterval` must be positive if provided
+- `MaxBatchSize` must be positive if provided
+- `MaxRetries` must be non-negative if provided
+- `MaxBufferSize` must be positive if provided, and >= `MaxBatchSize`
 
-These two parameters serve different purposes and work together:
+### Understanding `MaxBatchSize` vs `MaxBufferSize`
 
 **`MaxBatchSize` (default: 10)** - Controls **when** events are sent
 
 - Triggers immediate flush when queue reaches this size
 - Determines how many events are sent in each HTTP request
-- Smaller values = more frequent network requests
-- Larger values = fewer requests but higher latency
 
 **`MaxBufferSize` (default: 0 = unlimited)** - Controls **how many** events are stored
 
 - Limits total events persisted to storage
 - When limit is reached, oldest events are dropped (FIFO eviction)
-- Protects against unbounded storage growth
-- Useful for:
-  - Preventing disk space issues during extended offline periods
-  - Controlling memory usage in high-throughput scenarios
-  - Limiting event retention for privacy/compliance
-
-**Important**: `MaxBufferSize` should always be **greater than or equal to** `MaxBatchSize`. If `MaxBufferSize` is smaller, the batch size will never be reached and events will be dropped unnecessarily.
-
-**Examples:**
-
-```go
-// ✅ Good: Buffer is 10x batch size
-client, err := ripple.NewClient(ripple.ClientConfig{
-    MaxBatchSize:  10,
-    MaxBufferSize: 100,
-    // ...
-})
-
-// ✅ Good: Large buffer for extended offline periods
-client, err := ripple.NewClient(ripple.ClientConfig{
-    MaxBatchSize:  20,
-    MaxBufferSize: 1000,
-    // ...
-})
-
-// ❌ Bad: Buffer smaller than batch (batch will never be reached)
-client, err := ripple.NewClient(ripple.ClientConfig{
-    MaxBatchSize:  100,
-    MaxBufferSize: 50, // Events dropped before batch is full!
-    // ...
-})
-```
-
-**Behavior in different scenarios**:
-
-- **Normal operation** (`MaxBatchSize: 10, MaxBufferSize: 100`): Events flush every 10 events, buffer rarely fills
-- **Offline mode**: Buffer accumulates up to 100 events, then starts dropping oldest
-- **Misconfigured** (`MaxBatchSize: 100, MaxBufferSize: 50`): Batch never reached, events only sent via time-based flush
+- Must be >= `MaxBatchSize` (returns error otherwise)
 
 ## API
 
@@ -184,21 +131,29 @@ client, err := ripple.NewClient(ripple.ClientConfig{
 
 #### `Init() error`
 
-Initializes the client and starts the dispatcher. Must be called before tracking events.
+Initializes the client and restores persisted events. Uses double-checked locking for thread safety. Resets the disposed state, so calling `Init()` after `Dispose()` re-enables the client.
 
-#### `Track(name string, args ...any) error`
+Note: `Track()` automatically calls `Init()`, so explicit initialization is optional.
 
-Tracks an event with optional payload and metadata. Supports three usage patterns:
+#### `Track(name string, payload map[string]any, metadata map[string]any) error`
 
-- `Track(name)` - Simple event tracking
-- `Track(name, payload)` - Event with payload
-- `Track(name, payload, metadata)` - Event with payload and metadata
+Tracks an event with optional payload and metadata.
 
-Returns error if event name is empty, exceeds 255 characters, or if client is not initialized.
+Parameters:
+- `name` - Event name/identifier (required, cannot be empty)
+- `payload` - Event data payload (optional, pass `nil` if not needed)
+- `metadata` - Event-specific metadata (optional, pass `nil` if not needed)
 
-#### `SetMetadata(key string, value any) error`
+Usage examples:
+- `Track("page_view", nil, nil)` - Simple event tracking
+- `Track("click", map[string]any{"button": "submit"}, nil)` - Event with payload
+- `Track("purchase", payload, map[string]any{"version": "1.0"})` - Event with payload and metadata
 
-Sets a metadata value that will be attached to all subsequent events. Returns error if key is empty or exceeds 255 characters.
+If the client is disposed, events are silently dropped (returns nil). Otherwise, auto-calls `Init()` if not yet initialized.
+
+#### `SetMetadata(key string, value any)`
+
+Sets a metadata value that will be attached to all subsequent events.
 
 #### `GetMetadata() map[string]any`
 
@@ -206,15 +161,19 @@ Returns a copy of all stored metadata. Returns empty map if no metadata is set.
 
 #### `GetSessionId() *string`
 
-Returns the current session ID or `nil` if not set. Always returns `nil` for server environments.
+Returns `nil` for server environments.
 
 #### `Flush()`
 
 Manually triggers a flush of all queued events.
 
-#### `Dispose() error`
+#### `Dispose()`
 
-Gracefully shuts down the client, flushing and persisting all events.
+Cleans up resources: aborts in-flight retries, clears queue, clears metadata, resets state. Does NOT flush events. Call `Flush()` before `Dispose()` if you want to send remaining events.
+
+#### `Close()`
+
+Alias for `Dispose()`.
 
 ## Advanced Usage
 
@@ -224,91 +183,37 @@ Implement the `HTTPAdapter` interface to use custom HTTP clients:
 
 ```go
 import (
-    ripple "github.com/Tap30/ripple-go"
+    "context"
     "github.com/Tap30/ripple-go/adapters"
 )
 
-type MyHTTPAdapter struct {
-    // custom fields
-}
+type MyHTTPAdapter struct{}
 
 func (a *MyHTTPAdapter) Send(endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
+    return a.SendWithContext(context.Background(), endpoint, events, headers)
+}
+
+func (a *MyHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, events []adapters.Event, headers map[string]string) (*adapters.HTTPResponse, error) {
     // custom HTTP logic
     return &adapters.HTTPResponse{Status: 200}, nil
 }
-
-// Use custom adapter
-client, err := ripple.NewClient(ripple.ClientConfig{
-    APIKey:         "your-api-key",
-    Endpoint:       "https://api.example.com/events",
-    HTTPAdapter:    &MyHTTPAdapter{},
-    StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
-})
-if err != nil {
-    panic(err)
-}
-client.Init()
 ```
 
 ### Custom Storage Adapter
 
-Implement the `StorageAdapter` interface to use custom storage backends:
-
 ```go
-import (
-    ripple "github.com/Tap30/ripple-go"
-    "github.com/Tap30/ripple-go/adapters"
-)
+import "github.com/Tap30/ripple-go/adapters"
 
-type RedisStorage struct {
-    // Redis client
-}
+type RedisStorage struct{}
 
-func (r *RedisStorage) Save(events []adapters.Event) error {
-    // Save to Redis
-    return nil
-}
-
-func (r *RedisStorage) Load() ([]adapters.Event, error) {
-    // Load from Redis
-    return nil, nil
-}
-
-func (r *RedisStorage) Clear() error {
-    // Clear Redis storage
-    return nil
-}
-
-// Use custom adapter
-client, err := ripple.NewClient(ripple.ClientConfig{
-    APIKey:         "your-api-key",
-    Endpoint:       "https://api.example.com/events",
-    HTTPAdapter:    adapters.NewNetHTTPAdapter(),
-    StorageAdapter: &RedisStorage{},
-})
-if err != nil {
-    panic(err)
-}
-client.Init()
+func (r *RedisStorage) Save(events []adapters.Event) error { return nil }
+func (r *RedisStorage) Load() ([]adapters.Event, error)    { return nil, nil }
+func (r *RedisStorage) Clear() error                       { return nil }
 ```
 
 ### Graceful Shutdown
 
 ```go
-import (
-    "os"
-    "os/signal"
-    "syscall"
-    ripple "github.com/Tap30/ripple-go"
-)
-
-client, err := ripple.NewClient(config)
-if err != nil {
-    panic(err)
-}
-client.Init()
-
-// Handle graceful shutdown
 sigChan := make(chan os.Signal, 1)
 signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
 
@@ -354,101 +259,68 @@ client, err := ripple.NewClient(ripple.ClientConfig{
 ```go
 import "github.com/Tap30/ripple-go/adapters"
 
-// Persistent storage (default)
+// Persistent storage
 fileStorage := adapters.NewFileStorageAdapter("ripple_events.json")
 
-// No persistence - events are discarded if not sent
+// No persistence
 noopStorage := adapters.NewNoOpStorageAdapter()
 ```
 
-By default, events are persisted to `ripple_events.json` in the current working directory.
-
 ## Concurrency Guarantees
 
-The SDK is designed to handle concurrent operations safely:
-
-- **Thread-Safe Flush**: Multiple concurrent `Flush()` calls are automatically serialized using mutex locks
-- **Event Ordering**: FIFO order is maintained even during retry failures and concurrent operations
-- **No Event Loss**: Events tracked during flush operations are safely queued and sent in the next batch
-- **Automatic Cleanup**: Mutex locks are automatically released even if errors occur, preventing deadlocks
-
-You can safely call `Track()` and `Flush()` from multiple goroutines without worrying about race conditions.
+- **Thread-Safe Flush**: Multiple concurrent `Flush()` calls are serialized via mutex
+- **Thread-Safe Init**: Double-checked locking prevents race conditions during auto-init
+- **Event Ordering**: FIFO order is maintained even during retry failures
+- **No Event Loss**: Events tracked during flush are queued for the next batch
 
 ## Error Handling
 
-The SDK handles HTTP errors differently based on their type:
-
-- **2xx Success**: Events are cleared from storage
-- **4xx Client Errors**: Events are dropped (not retried or persisted) since client errors won't resolve without code changes
-- **5xx Server Errors**: Retried with exponential backoff up to `MaxRetries`, then re-queued and persisted for later retry
-- **Network Errors**: Same behavior as 5xx errors
+- **2xx Success**: Events cleared from storage
+- **4xx Client Errors**: Events dropped (no retry)
+- **5xx Server Errors**: Retried with exponential backoff (30s cap), re-queued on max retries
+- **Network Errors**: Same as 5xx
 
 ## Architecture
 
-The SDK consists of several key components:
-
-- **Client** – Public API and metadata management
-- **Dispatcher** – Event batching, flushing, and retry logic
+- **Client** – Public API, metadata management, disposal tracking
+- **Dispatcher** – Event batching, one-shot timer flushing, retry with context cancellation
 - **Queue** – Thread-safe FIFO event queue
-- **MetadataManager** – Shared metadata management
-- **HTTP Adapter** – Network communication layer
-- **Storage Adapter** – Event persistence layer
-- **Logger Adapter** – Logging interface
+- **MetadataManager** – Thread-safe shared metadata
+- **Adapters** – Pluggable HTTP, storage, and logger implementations
 
 See [AGENTS.md](./AGENTS.md) for detailed architecture documentation.
 
 ## API Contract
 
-See the  
-[API Contract Documentation](https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md)  
-for details on the shared, framework-independent interface all Ripple SDKs follow.
+See the [API Contract Documentation](https://github.com/Tap30/ripple/blob/main/DESIGN_AND_CONTRACTS.md) for the shared interface all Ripple SDKs follow.
 
 ## Development
 
-### Running Tests
-
 ```bash
-go test ./...
-```
-
-### Running Tests with Coverage
-
-```bash
-go test -cover ./...
-```
-
-### Running Examples
-
-```bash
-cd examples/basic
-go run main.go
+make test         # Run all tests
+make test-cover   # Run tests with coverage
+make fmt          # Format code
+make lint         # Run linter
+make build        # Build all packages
+make check        # Run all CI checks
 ```
 
 ### Playground
 
-Test the SDK with a local server:
-
 ```bash
 # Terminal 1: Start server
-cd playground
-make server
+cd playground && make server
 
 # Terminal 2: Run client
-cd playground
-make client
+cd playground && make client
 ```
-
-See [playground/README.md](./playground/README.md) for more details.
 
 ## Contributing
 
-Check the  
-[contributing guide](https://github.com/Tap30/ripple-go/blob/main/CONTRIBUTING.md)  
-for information on development workflow, proposing improvements, and running tests.
+See the [contributing guide](https://github.com/Tap30/ripple-go/blob/main/CONTRIBUTING.md).
 
-**Note**: This project uses [Conventional Commits](https://www.conventionalcommits.org/) and automated semantic versioning with [go-semantic-release](https://github.com/go-semantic-release/semantic-release). Use proper commit message formats like `feat:`, `fix:`, `docs:`, etc.
+Uses [Conventional Commits](https://www.conventionalcommits.org/) and automated semantic versioning.
 
 ## License
 
-Distributed under the  
-[MIT license](https://github.com/Tap30/ripple-go/blob/main/packages/browser/LICENSE).
+Distributed under the [MIT license](https://github.com/Tap30/ripple-go/blob/main/LICENSE).
