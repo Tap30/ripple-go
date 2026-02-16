@@ -9,7 +9,9 @@
     "changelog-generator": {
       "name": "default",
       "options": {
-        "emojis": "true"
+        "emojis": "false",
+        "showHash": "true",
+        "showAuthor": "true"
       }
     },
     "provider": {
