@@ -61,7 +61,7 @@ func main() {
         APIKey:         "your-api-key",
         Endpoint:       "https://api.example.com/events",
         HTTPAdapter:    adapters.NewNetHTTPAdapter(),
-        StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+        StorageAdapter: adapters.NewNoOpStorageAdapter(),
     })
     if err != nil {
         panic(err)
@@ -253,18 +253,16 @@ client, err := ripple.NewClient(ripple.ClientConfig{
 
 | Adapter                | Capacity  | Persistence | Use Case                          |
 | ---------------------- | --------- | ----------- | --------------------------------- |
-| **FileStorageAdapter** | Unlimited | Permanent   | Default, persistent event storage |
-| **NoOpStorageAdapter** | N/A       | None        | When persistence is not needed    |
+| **NoOpStorageAdapter** | N/A       | None        | Default, no persistence           |
 
 ```go
 import "github.com/Tap30/ripple-go/adapters"
 
-// Persistent storage
-fileStorage := adapters.NewFileStorageAdapter("ripple_events.json")
-
-// No persistence
-noopStorage := adapters.NewNoOpStorageAdapter()
+// No persistence (default)
+storage := adapters.NewNoOpStorageAdapter()
 ```
+
+For custom storage implementations (e.g., file, Redis, database), implement the `StorageAdapter` interface. See [adapters/README.md](./adapters/README.md) for examples.
 
 ## Concurrency Guarantees
 

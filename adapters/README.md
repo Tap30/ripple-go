@@ -33,14 +33,10 @@ type StorageAdapter interface {
 }
 ```
 
-**Default Implementation:** `FileStorageAdapter`
-
-- Stores events as JSON in a file
-- Suitable for server environments
-
 **NoOp Implementation:** `NoOpStorageAdapter`
 
 - Performs no storage operations
+- Default choice for most use cases
 - Useful when persistence is not required
 
 ### LoggerAdapter
@@ -100,13 +96,46 @@ func (a *MyHTTPAdapter) SendWithContext(ctx context.Context, endpoint string, ev
 ```go
 package main
 
-import "github.com/Tap30/ripple-go/adapters"
+import (
+    "encoding/json"
+    "os"
+    "github.com/Tap30/ripple-go/adapters"
+)
 
-type RedisStorage struct{}
+type FileStorage struct {
+    filepath string
+}
 
-func (r *RedisStorage) Save(events []adapters.Event) error { return nil }
-func (r *RedisStorage) Load() ([]adapters.Event, error)    { return nil, nil }
-func (r *RedisStorage) Clear() error                       { return nil }
+func (f *FileStorage) Save(events []adapters.Event) error {
+    data, err := json.Marshal(events)
+    if err != nil {
+        return err
+    }
+    return os.WriteFile(f.filepath, data, 0o644)
+}
+
+func (f *FileStorage) Load() ([]adapters.Event, error) {
+    data, err := os.ReadFile(f.filepath)
+    if err != nil {
+        if os.IsNotExist(err) {
+            return []adapters.Event{}, nil
+        }
+        return nil, err
+    }
+    var events []adapters.Event
+    if err := json.Unmarshal(data, &events); err != nil {
+        return nil, err
+    }
+    return events, nil
+}
+
+func (f *FileStorage) Clear() error {
+    err := os.Remove(f.filepath)
+    if err != nil && !os.IsNotExist(err) {
+        return err
+    }
+    return nil
+}
 ```
 
 ## Usage with Client
@@ -126,7 +155,7 @@ func main() {
         APIKey:         "your-api-key",
         Endpoint:       "https://api.example.com/events",
         HTTPAdapter:    adapters.NewNetHTTPAdapter(),
-        StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+        StorageAdapter: adapters.NewNoOpStorageAdapter(),
         LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
     })
     if err != nil {

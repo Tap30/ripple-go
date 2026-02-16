@@ -30,7 +30,7 @@ func main() {
 		MaxBatchSize:   5,
 		MaxRetries:     3,
 		HTTPAdapter:    httpAdapter,
-		StorageAdapter: adapters.NewFileStorageAdapter("ripple_events.json"),
+		StorageAdapter: NewFileStorageAdapter("ripple_events.json"),
 		LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelDebug),
 	})
 
@@ -219,7 +219,7 @@ func testInvalidEndpoint() {
 		MaxBatchSize:   5,
 		MaxRetries:     2,
 		HTTPAdapter:    adapters.NewNetHTTPAdapter(),
-		StorageAdapter: adapters.NewFileStorageAdapter("error_events.json"),
+		StorageAdapter: NewFileStorageAdapter("error_events.json"),
 		LoggerAdapter:  adapters.NewPrintLoggerAdapter(adapters.LogLevelWarn),
 	})
 
