@@ -642,13 +642,27 @@ func TestDispatcher_CalculateBackoffCap(t *testing.T) {
 		MaxRetries:    10,
 	}, &mockHTTPAdapter{}, &mockStorageAdapter{}, &mockLogger{})
 
-	// High attempt should cap at 30s
-	backoff := d.calculateBackoff(10)
-	if backoff > 31*time.Second { // 30s + max jitter (1s)
-		t.Errorf("expected backoff <= 31s, got %v", backoff)
-	}
-	if backoff < 30*time.Second {
-		t.Errorf("expected backoff >= 30s, got %v", backoff)
+	for _, tc := range []struct {
+		attempt int
+		base    time.Duration
+	}{
+		{0, time.Second},
+		{1, 2 * time.Second},
+		{4, 16 * time.Second},
+		{5, 30 * time.Second},
+		{10, 30 * time.Second},
+		{34, 30 * time.Second},
+		{63, 30 * time.Second},
+		{64, 30 * time.Second},
+		{100, 30 * time.Second},
+		{int(^uint(0) >> 1), 30 * time.Second},
+	} {
+		t.Run(fmt.Sprintf("attempt_%d", tc.attempt), func(t *testing.T) {
+			backoff := d.calculateBackoff(tc.attempt)
+			if backoff < tc.base || backoff >= tc.base+time.Second {
+				t.Errorf("expected backoff in [%v, %v), got %v", tc.base, tc.base+time.Second, backoff)
+			}
+		})
 	}
 }
 
