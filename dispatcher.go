@@ -302,8 +302,11 @@ func (d *Dispatcher) logStorageError(message string, err error, extra map[string
 // Formula: (2^attempt seconds) + random jitter, capped at 30s.
 // Example progression: 1s, 2s, 4s, 8s, 16s, 30s (capped).
 func (d *Dispatcher) calculateBackoff(attempt int) time.Duration {
-	// Exponential backoff: 2^attempt seconds
-	backoff := time.Duration(1<<attempt) * time.Second
+	// Stop doubling at the cap so large retry counts cannot overflow.
+	backoff := time.Second
+	for i := 0; i < attempt && backoff < maxBackoffDuration; i++ {
+		backoff *= 2
+	}
 	if backoff > maxBackoffDuration {
 		backoff = maxBackoffDuration
 	}
